@@ -44,3 +44,10 @@ bash scripts/package.sh
 ```
 
 The package script needs pnpm 9. Pushing a `v*` tag that matches `package.json` publishes a release.
+
+## Support the project
+Ubermoc Warcraft Mod Updater is free. If you'd like to say thanks, donations are optional and always appreciated:
+
+- [GitHub Sponsors](https://github.com/sponsors/ubermoc)
+- [Ko-fi](https://ko-fi.com/ubermoc)
+- [Buy Me a Coffee](https://buymeacoffee.com/Ubermoc)
