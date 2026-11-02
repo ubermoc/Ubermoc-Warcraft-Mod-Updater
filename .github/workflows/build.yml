@@ -1,0 +1,53 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Backend tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Package plugin
+        run: bash scripts/package.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-zip
+          path: out/Ubermoc-Warcraft-Mod-Updater.zip
+
+      # A normal release, not a prerelease: the plugin's update button reads
+      # /releases/latest, which ignores prereleases.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match package.json version $VERSION"
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" out/Ubermoc-Warcraft-Mod-Updater.zip \
+            --title "Version $VERSION" \
+            --notes "Version $VERSION"

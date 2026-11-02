@@ -1,0 +1,11 @@
+{
+  "name": "Ubermoc Warcraft Mod Updater",
+  "author": "ubermoc",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["utility", "wow", "addons"],
+    "description": "Finds your World of Warcraft games and updates their addons from GitHub releases in Gaming Mode.",
+    "image": ""
+  }
+}

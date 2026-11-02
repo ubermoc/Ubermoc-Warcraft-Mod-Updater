@@ -1,0 +1,55 @@
+# Copyright (c) 2026 ubermoc. All rights reserved. See LICENSE.
+"""Saved GitHub links. Lives in Decky's settings folder, so plugin updates keep it."""
+
+from __future__ import annotations
+
+import json
+import os
+import threading
+from pathlib import Path
+
+
+class Store:
+    def __init__(self, settings_dir: str | Path):
+        self.path = Path(settings_dir) / "links.json"
+        self._lock = threading.Lock()
+
+    def _load(self) -> dict:
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {"games": {}}
+        except (OSError, ValueError):
+            # Keep a damaged file for inspection rather than overwriting it.
+            try:
+                os.replace(self.path, self.path.with_suffix(".bad"))
+            except OSError:
+                pass
+            return {"games": {}}
+        return data if isinstance(data.get("games"), dict) else {"games": {}}
+
+    def _save(self, data: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, self.path)
+
+    def links(self, game_id: str) -> dict[str, dict]:
+        with self._lock:
+            return self._load()["games"].get(game_id, {})
+
+    def set_link(self, game_id: str, key: str, link: dict) -> None:
+        with self._lock:
+            data = self._load()
+            data["games"].setdefault(game_id, {})[key] = link
+            self._save(data)
+
+    def remove_link(self, game_id: str, key: str) -> bool:
+        with self._lock:
+            data = self._load()
+            game = data["games"].get(game_id, {})
+            if key not in game:
+                return False
+            del game[key]
+            self._save(data)
+            return True
