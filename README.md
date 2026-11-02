@@ -51,3 +51,5 @@ Ubermoc Warcraft Mod Updater is free. If you'd like to say thanks, donations are
 - [GitHub Sponsors](https://github.com/sponsors/ubermoc)
 - [Ko-fi](https://ko-fi.com/ubermoc)
 - [Buy Me a Coffee](https://buymeacoffee.com/Ubermoc)
+
+Made by Marcos ([Ubermoc](https://github.com/ubermoc)).
