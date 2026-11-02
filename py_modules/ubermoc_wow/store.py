@@ -8,6 +8,9 @@ import os
 import threading
 from pathlib import Path
 
+# Repos that moved. Saved links to the old name are rewritten when the file is read.
+RENAMED_REPOS = {"ubermoc/ubermocui": "ubermoc/Ubermoc-UI"}
+
 
 class Store:
     def __init__(self, settings_dir: str | Path):
@@ -26,7 +29,25 @@ class Store:
             except OSError:
                 pass
             return {"games": {}}
-        return data if isinstance(data.get("games"), dict) else {"games": {}}
+        if not isinstance(data.get("games"), dict):
+            return {"games": {}}
+        if self._migrate(data):
+            try:
+                self._save(data)
+            except OSError:
+                pass
+        return data
+
+    @staticmethod
+    def _migrate(data: dict) -> bool:
+        changed = False
+        for links in data["games"].values():
+            for link in links.values() if isinstance(links, dict) else ():
+                new = RENAMED_REPOS.get(str(link.get("repo", "")).lower()) if isinstance(link, dict) else None
+                if new:
+                    link["repo"] = new
+                    changed = True
+        return changed
 
     def _save(self, data: dict) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

@@ -22,7 +22,7 @@ PLUGIN_REPO = "ubermoc/Ubermoc-Warcraft-Mod-Updater"
 PLUGIN_ASSET = "Ubermoc-Warcraft-Mod-Updater.zip"
 PLUGIN_FILES = ("plugin.json", "main.py", "dist/index.js")
 # Offered by default. Its TOC only supports the live Midnight and Forever clients.
-DEFAULT_ADDON = {"title": "Ubermoc UI", "folder": "UbermocUI", "repo": "ubermoc/UbermocUI"}
+DEFAULT_ADDON = {"title": "Ubermoc UI", "folder": "UbermocUI", "repo": "ubermoc/Ubermoc-UI"}
 DEFAULT_ADDON_PRODUCTS = ("wow", "wowf")
 CACHE_SECONDS = 15 * 60
 CHECK_WORKERS = 4

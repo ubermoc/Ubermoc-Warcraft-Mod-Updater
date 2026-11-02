@@ -413,9 +413,18 @@ class Service(Base):
             self.assertEqual(self.up.default_addon("g1") is not None, offered, product)
 
     def test_default_addon_not_offered_once_installed(self):
-        self.assertEqual(self.up.default_addon("g1")["repo"], "ubermoc/UbermocUI")
+        self.assertEqual(self.up.default_addon("g1")["repo"], "ubermoc/Ubermoc-UI")
         self.installed("1.0", "ubermocui")
         self.assertIsNone(self.up.default_addon("g1"))
+
+    def test_saved_links_to_the_old_ubermocui_repo_move_to_the_new_one(self):
+        self.up.store.set_link("g1", "UbermocUI", {"repo": "ubermoc/UbermocUI", "folders": ["UbermocUI"], "owned": ["UbermocUI"], "version": "1.0.103"})
+        self.up.store.set_link("g1", "Other", {"repo": "me/other", "folders": [], "owned": [], "version": "1"})
+        reopened = Updater(str(self.tmp), str(self.tmp / "settings"), str(self.tmp / "runtime"), str(self.plugin))
+        links = reopened.store.links("g1")
+        self.assertEqual((links["UbermocUI"]["repo"], links["UbermocUI"]["version"]), ("ubermoc/Ubermoc-UI", "1.0.103"))
+        self.assertEqual(links["Other"]["repo"], "me/other")
+        self.assertIn("ubermoc/Ubermoc-UI", (self.tmp / "settings/links.json").read_text())
 
     def test_not_now_is_remembered_per_game(self):
         other = discover.Game("g2", "Forever", "_forever_", "wowf", "1.60.1.1", 16001, "forever", str(self.tmp), str(self.tmp / "Other"))
