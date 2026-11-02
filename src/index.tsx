@@ -5,7 +5,19 @@ import { useCallback, useEffect, useState } from "react";
 import { FaDownload } from "react-icons/fa";
 
 import { AddonItem, RowLabel } from "./AddonItem";
-import { addAddon, AddonRow, AddonStatus, checkAddons, Game, listAddons, listGames } from "./api";
+import {
+  addAddon,
+  AddonRow,
+  AddonStatus,
+  checkAddons,
+  DefaultAddon,
+  defaultAddon,
+  dismissDefaultAddon,
+  Game,
+  listAddons,
+  listGames,
+} from "./api";
+import { DefaultAddonPrompt } from "./DefaultAddonPrompt";
 import { PluginUpdate } from "./PluginUpdate";
 import { Message, RepoEditor } from "./RepoEditor";
 
@@ -24,6 +36,7 @@ function Content() {
   const [rows, setRows] = useState<AddonRow[]>([]);
   const [statuses, setStatuses] = useState<Record<string, AddonStatus>>({});
   const [listError, setListError] = useState("");
+  const [suggested, setSuggested] = useState<DefaultAddon | null>(null);
 
   const scan = useCallback(async (rescan: boolean) => {
     const reply = await listGames(rescan);
@@ -48,6 +61,8 @@ function Content() {
     }
     setListError("");
     setRows(list.result);
+    const offer = await defaultAddon(gameId);
+    setSuggested(offer.ok ? offer.result : null);
     const checked = await checkAddons(gameId, fresh);
     if (checked.ok) setStatuses(checked.result);
     else setListError(checked.error);
@@ -58,6 +73,7 @@ function Content() {
     setRows([]);
     setStatuses({});
     setListError("");
+    setSuggested(null);
     if (openGame === id) {
       setOpenGame(null);
     } else {
@@ -78,6 +94,11 @@ function Content() {
     return reply;
   };
 
+  const dismiss = async (gameId: string) => {
+    await dismissDefaultAddon(gameId);
+    setSuggested(null);
+  };
+
   return (
     <>
       <PanelSection title="World of Warcraft">
@@ -94,6 +115,7 @@ function Content() {
             {openGame === game.id && (
               <>
                 {listError && <Message text={listError} />}
+                {suggested && <DefaultAddonPrompt addon={suggested} onInstall={add(game.id)} onDismiss={() => dismiss(game.id)} />}
                 <PanelSectionRow>
                   <ButtonItem layout="below" onClick={() => toggleRow(ADD_ROW)}>
                     <RowLabel title="+ Add addon from GitHub" detail="" open={openRow === ADD_ROW} />

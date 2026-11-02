@@ -45,6 +45,12 @@ class Plugin:
     async def list_addons(self, game_id: str) -> dict:
         return await self._run(self.updater.list_addons, game_id)
 
+    async def default_addon(self, game_id: str) -> dict:
+        return await self._run(self.updater.default_addon, game_id)
+
+    async def dismiss_default_addon(self, game_id: str) -> dict:
+        return await self._run(self.updater.dismiss_default_addon, game_id)
+
     async def check_addons(self, game_id: str, fresh: bool = False) -> dict:
         return await self._run(self.updater.check_addons, game_id, fresh)
 

@@ -21,6 +21,9 @@ PLUGIN_NAME = "Ubermoc Warcraft Mod Updater"
 PLUGIN_REPO = "ubermoc/Ubermoc-Warcraft-Mod-Updater"
 PLUGIN_ASSET = "Ubermoc-Warcraft-Mod-Updater.zip"
 PLUGIN_FILES = ("plugin.json", "main.py", "dist/index.js")
+# Offered by default. Its TOC only supports the live Midnight and Forever clients.
+DEFAULT_ADDON = {"title": "Ubermoc UI", "folder": "UbermocUI", "repo": "ubermoc/UbermocUI"}
+DEFAULT_ADDON_PRODUCTS = ("wow", "wowf")
 CACHE_SECONDS = 15 * 60
 CHECK_WORKERS = 4
 
@@ -81,6 +84,20 @@ class Updater:
             if row.key == key:
                 return row
         raise github.GitHubError("That addon is no longer installed.")
+
+    def default_addon(self, game_id: str) -> dict | None:
+        """The addon to offer for this game, if it should be offered."""
+        game = self._game(game_id)
+        if game.product not in DEFAULT_ADDON_PRODUCTS or self.store.is_dismissed(game_id):
+            return None
+        wanted = DEFAULT_ADDON["folder"].lower()
+        installed = toc.read_addons(Path(game.addons_path), game.flavor)
+        return None if any(a.folder.lower() == wanted for a in installed) else dict(DEFAULT_ADDON)
+
+    def dismiss_default_addon(self, game_id: str) -> bool:
+        self._game(game_id)
+        self.store.dismiss(game_id)
+        return True
 
     # ---------- GitHub ----------
     def _lookup(self, repo: str, flavor: str, fresh: bool = False) -> github.Release:

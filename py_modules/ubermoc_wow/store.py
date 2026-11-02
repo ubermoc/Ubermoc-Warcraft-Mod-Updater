@@ -44,6 +44,18 @@ class Store:
             data["games"].setdefault(game_id, {})[key] = link
             self._save(data)
 
+    def is_dismissed(self, game_id: str) -> bool:
+        with self._lock:
+            return game_id in self._load().get("dismissed", [])
+
+    def dismiss(self, game_id: str) -> None:
+        with self._lock:
+            data = self._load()
+            dismissed = data.setdefault("dismissed", [])
+            if game_id not in dismissed:
+                dismissed.append(game_id)
+                self._save(data)
+
     def remove_link(self, game_id: str, key: str) -> bool:
         with self._lock:
             data = self._load()

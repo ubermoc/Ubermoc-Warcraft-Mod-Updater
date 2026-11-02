@@ -407,6 +407,33 @@ class Service(Base):
         self.assertTrue((self.addons / "Bar/Bar.toc").exists())
         self.assertEqual(next(r for r in self.up.list_addons("g1") if r["key"] == "Bar")["repo"], "")
 
+    def test_default_addon_offered_only_on_midnight_and_forever(self):
+        for product, offered in (("wow", True), ("wowf", True), ("wowt", False), ("wow_classic", False), ("wow_classic_era", False)):
+            self.game.product = product
+            self.assertEqual(self.up.default_addon("g1") is not None, offered, product)
+
+    def test_default_addon_not_offered_once_installed(self):
+        self.assertEqual(self.up.default_addon("g1")["repo"], "ubermoc/UbermocUI")
+        self.installed("1.0", "ubermocui")
+        self.assertIsNone(self.up.default_addon("g1"))
+
+    def test_not_now_is_remembered_per_game(self):
+        other = discover.Game("g2", "Forever", "_forever_", "wowf", "1.60.1.1", 16001, "forever", str(self.tmp), str(self.tmp / "Other"))
+        self.up._games.append(other)
+        self.up.dismiss_default_addon("g1")
+        self.assertIsNone(self.up.default_addon("g1"))
+        self.assertIsNotNone(self.up.default_addon("g2"))
+        reopened = Updater(str(self.tmp), str(self.tmp / "settings"), str(self.tmp / "runtime"), str(self.plugin))
+        reopened._games = [self.game]
+        self.assertIsNone(reopened.default_addon("g1"))
+
+    def test_dismissing_keeps_saved_links(self):
+        self.installed()
+        with self.lookup():
+            self.up.save_link("g1", "Foo", "me/foo")
+        self.up.dismiss_default_addon("g1")
+        self.assertEqual(self.up.store.links("g1")["Foo"]["repo"], "me/foo")
+
     def test_damaged_links_file_is_kept_aside(self):
         (self.tmp / "settings").mkdir()
         (self.tmp / "settings/links.json").write_text("{broken")
