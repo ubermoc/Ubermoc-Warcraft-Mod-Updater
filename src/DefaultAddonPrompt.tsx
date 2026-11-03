@@ -26,7 +26,7 @@ export function DefaultAddonPrompt(props: {
 
   return (
     <>
-      <Message text={`Install ${props.addon.title}?\nPlay World of Warcraft with just a controller.`} />
+      <Message text={`Install ${props.addon.title}?\n${props.addon.blurb}`} />
       {error && <Message text={error} />}
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={busy} onClick={install}>

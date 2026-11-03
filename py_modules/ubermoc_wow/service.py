@@ -22,7 +22,12 @@ PLUGIN_REPO = "ubermoc/Ubermoc-Warcraft-Mod-Updater"
 PLUGIN_ASSET = "Ubermoc-Warcraft-Mod-Updater.zip"
 PLUGIN_FILES = ("plugin.json", "main.py", "dist/index.js")
 # Offered by default. Its TOC only supports the live Midnight and Forever clients.
-DEFAULT_ADDON = {"title": "Ubermoc UI", "folder": "UbermocUI", "repo": "ubermoc/Ubermoc-UI"}
+DEFAULT_ADDONS = (
+    {"title": "Ubermoc UI", "folder": "UbermocUI", "repo": "ubermoc/Ubermoc-UI",
+     "blurb": "Play World of Warcraft with just a controller."},
+    {"title": "Ubermoc Forever", "folder": "UbermocForever", "repo": "ubermoc/Ubermoc-Forever",
+     "blurb": "A controller-first interface for Forever and Midnight."},
+)
 DEFAULT_ADDON_PRODUCTS = ("wow", "wowf")
 CACHE_SECONDS = 15 * 60
 CHECK_WORKERS = 4
@@ -85,18 +90,26 @@ class Updater:
                 return row
         raise github.GitHubError("That addon is no longer installed.")
 
-    def default_addon(self, game_id: str) -> dict | None:
-        """The addon to offer for this game, if it should be offered."""
-        game = self._game(game_id)
-        if game.product not in DEFAULT_ADDON_PRODUCTS or self.store.is_dismissed(game_id):
-            return None
-        wanted = DEFAULT_ADDON["folder"].lower()
-        installed = toc.read_addons(Path(game.addons_path), game.flavor)
-        return None if any(a.folder.lower() == wanted for a in installed) else dict(DEFAULT_ADDON)
+    @staticmethod
+    def _dismiss_key(game_id: str, folder: str) -> str:
+        # Ubermoc UI keeps the bare game id so earlier "Not now" answers still count.
+        return game_id if folder == DEFAULT_ADDONS[0]["folder"] else f"{game_id}:{folder}"
 
-    def dismiss_default_addon(self, game_id: str) -> bool:
+    def default_addons(self, game_id: str) -> list[dict]:
+        """The addons to offer for this game, if they should be offered."""
+        game = self._game(game_id)
+        if game.product not in DEFAULT_ADDON_PRODUCTS:
+            return []
+        installed = {a.folder.lower() for a in toc.read_addons(Path(game.addons_path), game.flavor)}
+        return [
+            dict(addon) for addon in DEFAULT_ADDONS
+            if addon["folder"].lower() not in installed
+            and not self.store.is_dismissed(self._dismiss_key(game_id, addon["folder"]))
+        ]
+
+    def dismiss_default_addon(self, game_id: str, folder: str = "UbermocUI") -> bool:
         self._game(game_id)
-        self.store.dismiss(game_id)
+        self.store.dismiss(self._dismiss_key(game_id, folder))
         return True
 
     # ---------- GitHub ----------

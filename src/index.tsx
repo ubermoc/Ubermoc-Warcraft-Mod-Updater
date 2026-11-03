@@ -11,7 +11,7 @@ import {
   AddonStatus,
   checkAddons,
   DefaultAddon,
-  defaultAddon,
+  defaultAddons,
   dismissDefaultAddon,
   Game,
   listAddons,
@@ -36,7 +36,7 @@ function Content() {
   const [rows, setRows] = useState<AddonRow[]>([]);
   const [statuses, setStatuses] = useState<Record<string, AddonStatus>>({});
   const [listError, setListError] = useState("");
-  const [suggested, setSuggested] = useState<DefaultAddon | null>(null);
+  const [suggested, setSuggested] = useState<DefaultAddon[]>([]);
 
   const scan = useCallback(async (rescan: boolean) => {
     const reply = await listGames(rescan);
@@ -61,8 +61,8 @@ function Content() {
     }
     setListError("");
     setRows(list.result);
-    const offer = await defaultAddon(gameId);
-    setSuggested(offer.ok ? offer.result : null);
+    const offer = await defaultAddons(gameId);
+    setSuggested(offer.ok ? offer.result : []);
     const checked = await checkAddons(gameId, fresh);
     if (checked.ok) setStatuses(checked.result);
     else setListError(checked.error);
@@ -73,7 +73,7 @@ function Content() {
     setRows([]);
     setStatuses({});
     setListError("");
-    setSuggested(null);
+    setSuggested([]);
     if (openGame === id) {
       setOpenGame(null);
     } else {
@@ -94,9 +94,9 @@ function Content() {
     return reply;
   };
 
-  const dismiss = async (gameId: string) => {
-    await dismissDefaultAddon(gameId);
-    setSuggested(null);
+  const dismiss = async (gameId: string, folder: string) => {
+    await dismissDefaultAddon(gameId, folder);
+    setSuggested((current) => current.filter((addon) => addon.folder !== folder));
   };
 
   return (
@@ -115,7 +115,9 @@ function Content() {
             {openGame === game.id && (
               <>
                 {listError && <Message text={listError} />}
-                {suggested && <DefaultAddonPrompt addon={suggested} onInstall={add(game.id)} onDismiss={() => dismiss(game.id)} />}
+                {suggested.map((addon) => (
+                  <DefaultAddonPrompt key={addon.folder} addon={addon} onInstall={add(game.id)} onDismiss={() => dismiss(game.id, addon.folder)} />
+                ))}
                 <PanelSectionRow>
                   <ButtonItem layout="below" onClick={() => toggleRow(ADD_ROW)}>
                     <RowLabel title="+ Add addon from GitHub" detail="" open={openRow === ADD_ROW} />

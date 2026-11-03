@@ -37,6 +37,7 @@ export interface DefaultAddon {
   title: string;
   folder: string;
   repo: string;
+  blurb: string;
 }
 
 export interface PluginInfo {
@@ -61,8 +62,8 @@ export const saveLink = callable<[gameId: string, key: string, text: string], Re
 export const removeLink = callable<[gameId: string, key: string], Reply<boolean>>("remove_link");
 export const updateAddon = callable<[gameId: string, key: string], Reply<{ title: string; version: string }>>("update_addon");
 export const addAddon = callable<[gameId: string, text: string], Reply<{ title: string; version: string }>>("add_addon");
-export const defaultAddon = callable<[gameId: string], Reply<DefaultAddon | null>>("default_addon");
-export const dismissDefaultAddon = callable<[gameId: string], Reply<boolean>>("dismiss_default_addon");
+export const defaultAddons = callable<[gameId: string], Reply<DefaultAddon[]>>("default_addons");
+export const dismissDefaultAddon = callable<[gameId: string, folder: string], Reply<boolean>>("dismiss_default_addon");
 export const checkPlugin = callable<[], Reply<PluginInfo>>("check_plugin");
 export const prepareUpdate = callable<[], Reply<PreparedUpdate>>("prepare_plugin_update");
 
