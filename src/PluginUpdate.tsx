@@ -2,7 +2,7 @@
 import { ButtonItem, Field, PanelSection, PanelSectionRow } from "@decky/ui";
 import { useEffect, useRef, useState } from "react";
 
-import { checkPlugin, installWithDecky, PluginInfo, prepareUpdate, restartDecky } from "./api";
+import { checkPlugin, installPluginUpdate, PluginInfo, reloadAndShowPanel, restartDecky } from "./api";
 import { Message } from "./RepoEditor";
 
 // A working update reloads this panel. If it's still here after this long, the
@@ -25,9 +25,9 @@ export function PluginUpdate() {
     setBusy(true);
     setError("");
     try {
-      const prepared = await prepareUpdate();
-      if (!prepared.ok) throw new Error(prepared.error);
-      await installWithDecky(prepared.result);
+      const installed = await installPluginUpdate();
+      if (!installed.ok) throw new Error(installed.error);
+      await reloadAndShowPanel("Ubermoc Warcraft Mod Updater");
       timer.current = setTimeout(() => {
         setBusy(false);
         setOfferRestart(true);

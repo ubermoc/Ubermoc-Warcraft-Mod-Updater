@@ -23,7 +23,7 @@ Together: the Updater keeps the addon current, Ubermoc UI lets you play, and Ube
 - Midnight and Forever offer to install Ubermoc UI if it isn't installed. Not now is remembered for that game.
 - Add addon from GitHub installs a new addon the same way.
 - Edit changes a saved repo. Remove forgets the link and leaves the addon installed.
-- The update button at the bottom updates the plugin through Decky's own installer, so Decky and SteamOS don't need restarting.
+- The update button at the bottom updates the plugin in place and reloads it, the same way Ubermoc Speech does, so Decky and SteamOS don't need restarting.
 
 ## What it can update
 

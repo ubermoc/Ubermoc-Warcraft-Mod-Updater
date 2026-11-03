@@ -61,8 +61,12 @@ function Content() {
     }
     setListError("");
     setRows(list.result);
-    const offer = await defaultAddons(gameId);
-    setSuggested(offer.ok ? offer.result : []);
+    try {
+      const offer = await defaultAddons(gameId);
+      setSuggested(offer.ok ? offer.result : []);
+    } catch {
+      setSuggested([]); // the offer is optional; never let it block the update check
+    }
     const checked = await checkAddons(gameId, fresh);
     if (checked.ok) setStatuses(checked.result);
     else setListError(checked.error);

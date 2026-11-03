@@ -144,6 +144,8 @@ class Updater:
             return {**result, "state": "current"}
         if not known:
             return {**result, "state": "unknown"}
+        if all(_version_tuple(v) > _version_tuple(release.version) for v in known):
+            return {**result, "state": "current"}  # newer than the latest release
         return {**result, "state": "update"}
 
     def _folder_addons(self, game: discover.Game, row: toc.Row) -> list[toc.Addon]:
@@ -254,11 +256,11 @@ class Updater:
         latest = release.get("tag_name", "").lstrip("v")
         return {"current": current, "latest": latest, "available": _version_tuple(latest) > _version_tuple(current)}
 
-    def prepare_plugin_update(self) -> dict:
-        """Download and check the update, so Decky only ever receives a good zip.
+    def install_plugin_update(self) -> dict:
+        """Download the update, check it, then overwrite this plugin's files in place.
 
-        Decky deletes the old plugin before it checks the hash, so a bad download
-        must never reach it.
+        Nothing is touched until the whole zip is good. The panel then asks Decky to
+        reload the plugin, which restarts this backend and loads the new panel.
         """
         release = self._plugin_release()
         if release is None:
@@ -270,13 +272,19 @@ class Updater:
         path = self.runtime_dir / PLUGIN_ASSET
         github.download(asset["browser_download_url"], str(path))
         self._check_plugin_zip(path)
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        return {
-            "path": str(path),
-            "name": PLUGIN_NAME,
-            "version": release.get("tag_name", "").lstrip("v"),
-            "hash": digest,
-        }
+        prefix = f"{PLUGIN_NAME}/"
+        with zipfile.ZipFile(path) as z:
+            members = [m for m in z.infolist() if m.filename.startswith(prefix) and not m.is_dir()]
+            try:
+                for member in members:
+                    dest = self.plugin_dir / member.filename[len(prefix):]
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    tmp = dest.with_name(dest.name + ".new")
+                    tmp.write_bytes(z.read(member))
+                    os.replace(tmp, dest)
+            except OSError as e:
+                raise github.GitHubError(f"Couldn't write the update: {e}") from e
+        return {"version": release.get("tag_name", "").lstrip("v")}
 
     @staticmethod
     def _check_plugin_zip(path: Path) -> None:

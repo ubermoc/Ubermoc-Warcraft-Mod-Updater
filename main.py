@@ -72,5 +72,5 @@ class Plugin:
     async def check_plugin(self) -> dict:
         return await self._run(self.updater.check_plugin)
 
-    async def prepare_plugin_update(self) -> dict:
-        return await self._run(self.updater.prepare_plugin_update)
+    async def install_plugin_update(self) -> dict:
+        return await self._run(self.updater.install_plugin_update)

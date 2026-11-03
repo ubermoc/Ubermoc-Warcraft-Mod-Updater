@@ -464,6 +464,25 @@ class Service(Base):
         with mock.patch.object(github, "latest_release", return_value=None):
             self.assertFalse(self.up.check_plugin()["available"])
 
+    def test_plugin_update_overwrites_files_in_place(self):
+        self.up.plugin_dir = self.tmp / "plugin_dir"
+        (self.up.plugin_dir / "dist").mkdir(parents=True)
+        (self.up.plugin_dir / "dist/index.js").write_text("old")
+        (self.up.plugin_dir / "keep.txt").write_text("keep")
+        zip_path = self.plugin_zip(self.tmp / "u.zip")
+        make_zip(zip_path, {f"{PLUGIN_NAME}/plugin.json": json.dumps({"name": PLUGIN_NAME}), f"{PLUGIN_NAME}/main.py": "new", f"{PLUGIN_NAME}/dist/index.js": "new"})
+        release = {"tag_name": "v9.9.9", "assets": [{"name": "Ubermoc-Warcraft-Mod-Updater.zip", "browser_download_url": "x"}]}
+        with mock.patch.object(github, "latest_release", return_value=release), mock.patch.object(github, "download", lambda url, dest, limit=0: Path(dest).write_bytes(zip_path.read_bytes())):
+            self.assertEqual(self.up.install_plugin_update(), {"version": "9.9.9"})
+        self.assertEqual((self.up.plugin_dir / "dist/index.js").read_text(), "new")
+        self.assertEqual((self.up.plugin_dir / "main.py").read_text(), "new")
+        self.assertEqual((self.up.plugin_dir / "keep.txt").read_text(), "keep")
+
+    def test_installed_newer_than_latest_is_current(self):
+        self.installed("v3")
+        with self.lookup():
+            self.assertEqual(self.up.check_addons("g1", True)["Foo"]["state"], "current")
+
     def test_plugin_zip_checks(self):
         self.up._check_plugin_zip(self.plugin_zip(self.tmp / "ok.zip"))
         for bad in (self.plugin_zip(self.tmp / "b1.zip", name="Other"), self.plugin_zip(self.tmp / "b2.zip", skip=("index.js",))):
