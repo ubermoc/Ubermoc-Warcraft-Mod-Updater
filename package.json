@@ -8,6 +8,12 @@
     "watch": "rollup -c -w"
   },
   "author": "ubermoc",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubermoc/Ubermoc-Warcraft-Mod-Updater.git"
+  },
+  "homepage": "https://github.com/ubermoc/Ubermoc-Warcraft-Mod-Updater",
+  "bugs": "https://github.com/ubermoc/Ubermoc-Warcraft-Mod-Updater/issues",
   "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
     "@decky/rollup": "^1.0.2",
