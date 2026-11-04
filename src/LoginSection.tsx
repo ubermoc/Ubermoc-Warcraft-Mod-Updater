@@ -85,6 +85,7 @@ export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () =
                   if (!reply.ok) setError(reply.error);
                 }, 500);
               }}
+            />
           </PanelSectionRow>
           <PanelSectionRow>
             <ButtonItem layout="below" disabled={busy || password === ""} onClick={() => work(() => saveLogin(password))}>
