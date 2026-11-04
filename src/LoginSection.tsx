@@ -1,6 +1,6 @@
 // Copyright (c) 2026 ubermoc. All rights reserved. See LICENSE.
-import { ButtonItem, DropdownItem, PanelSectionRow, TextField } from "@decky/ui";
-import { useEffect, useState } from "react";
+import { ButtonItem, PanelSectionRow, SliderField, TextField } from "@decky/ui";
+import { useEffect, useRef, useState } from "react";
 
 import { loginSpeed, loginStatus, LoginStatus, removeLogin, Reply, saveLogin, setLoginSpeed } from "./api";
 import { RowLabel } from "./AddonItem";
@@ -12,7 +12,8 @@ export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () =
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [speed, setSpeed] = useState("normal");
+  const [speed, setSpeed] = useState(1);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apply = (reply: Reply<LoginStatus>) => {
     if (!reply.ok) {
@@ -65,24 +66,25 @@ export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () =
           <Message text={`${warning}\nWith a saved password, Play types it in and presses Enter for you. Your authenticator code is never saved. Enter it with Steam's built-in keyboard, or say it with Ubermoc Speech.`} />
           {error && <Message text={error} />}
           <PanelSectionRow>
-            <DropdownItem
-              label="Login timing"
-              description="How long Play waits for the login screen. Typed too early? Pick a slower option. Waiting too long? Pick a faster one."
-              rgOptions={[
-                { data: "instant", label: "Instant" },
-                { data: "fastest", label: "Fastest" },
-                { data: "faster", label: "Faster" },
-                { data: "normal", label: "Normal" },
-                { data: "slower", label: "Slower" },
-                { data: "slowest", label: "Slowest" },
-              ]}
-              selectedOption={speed}
-              onChange={async (option) => {
-                setSpeed(option.data);
-                const reply = await setLoginSpeed(option.data);
-                if (!reply.ok) setError(reply.error);
+            <SliderField
+              label="Login wait"
+              description="How long Play waits for the login screen, as a multiple of how long your game took to start. 1 is the safe default and about 0.5 worked well in tests. Password typed too early? Raise it. Waiting too long? Lower it."
+              value={speed}
+              min={0}
+              max={3}
+              step={0.05}
+              showValue
+              editableValue
+              valueSuffix="x"
+              onChange={(value) => {
+                setSpeed(value);
+                if (saveTimer.current) clearTimeout(saveTimer.current);
+                // Saved a moment after the slider stops moving, not on every step.
+                saveTimer.current = setTimeout(async () => {
+                  const reply = await setLoginSpeed(value);
+                  if (!reply.ok) setError(reply.error);
+                }, 500);
               }}
-            />
           </PanelSectionRow>
           <PanelSectionRow>
             <ButtonItem layout="below" disabled={busy || password === ""} onClick={() => work(() => saveLogin(password))}>

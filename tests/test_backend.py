@@ -570,7 +570,7 @@ class Service(Base):
         with self.assertRaises(login.LoginError):
             vault.status()
 
-    def run_autologin(self, password="Pa55 w0rd!", running_before=False, starts_at=2.0, closes_before_typing=False, drawn_at=None, log_after=1.0, speed="normal"):
+    def run_autologin(self, password="Pa55 w0rd!", running_before=False, starts_at=2.0, closes_before_typing=False, drawn_at=None, log_after=1.0, speed=1.0):
         clock = {"t": 0.0}
         typed = []
         self.typed_at = None
@@ -638,29 +638,37 @@ class Service(Base):
         self.assertGreaterEqual(self.keys.typed_at, 2.0 + 9.0 + 9.0 - 0.5)  # log, then about as long again
         self.assertLessEqual(self.keys.typed_at, 2.0 + 9.0 + 9.0 + 2.0)
 
-    def test_the_login_timing_setting_scales_the_wait(self):
+    def test_the_login_wait_setting_scales_the_wait(self):
         waits = {}
-        for speed in ("instant", "fastest", "faster", "normal", "slower", "slowest"):
-            self.run_autologin(drawn_at=10_000.0, log_after=4.0, speed=speed)
-            waits[speed] = self.keys.typed_at
-        ordered = [waits[k] for k in ("instant", "fastest", "faster", "normal", "slower", "slowest")]
+        for factor in (0.0, 0.25, 0.5, 1.0, 2.0, 3.0):
+            self.run_autologin(drawn_at=10_000.0, log_after=4.0, speed=factor)
+            waits[factor] = self.keys.typed_at
+        ordered = [waits[k] for k in sorted(waits)]
         self.assertEqual(ordered, sorted(ordered))
         self.assertEqual(len(set(ordered)), 6)
-        self.assertLess(waits["instant"], 2.0 + 4.0 + 0.5)  # types as the startup log appears, no extra wait
+        self.assertLess(waits[0.0], 2.0 + 4.0 + 0.5)  # 0 types as the startup log appears, no extra wait
+        # an earlier version saved a name, and it still means the same thing
+        self.run_autologin(drawn_at=10_000.0, log_after=4.0, speed="faster")
+        self.assertAlmostEqual(self.keys.typed_at, waits[0.5], delta=0.3)
 
     def test_the_wait_is_capped(self):
         self.run_autologin(drawn_at=10_000.0, log_after=40.0)
         self.assertLessEqual(self.keys.typed_at, 2.0 + 40.0 + autologin.SETTLE_MAX_S + 2.0)
 
-    def test_login_timing_is_saved_and_checked(self):
+    def test_login_wait_is_saved_and_checked(self):
         with tempfile.TemporaryDirectory() as tmp:
             updater = Updater(tmp, str(Path(tmp) / "settings"), str(Path(tmp) / "run"), str(Path(tmp) / "plugin"))
-            self.assertEqual(updater.login_speed(), {"speed": "normal"})
-            self.assertEqual(updater.set_login_speed("instant"), {"speed": "instant"})
-            self.assertEqual(updater.login_speed(), {"speed": "instant"})
-            with self.assertRaises(github.GitHubError):
-                updater.set_login_speed("warp")
-            self.assertEqual(updater.login_speed(), {"speed": "instant"})
+            self.assertEqual(updater.login_speed(), {"speed": 1.0})
+            self.assertEqual(updater.set_login_speed(0.45), {"speed": 0.45})
+            self.assertEqual(updater.login_speed(), {"speed": 0.45})
+            self.assertEqual(updater.set_login_speed(0.512), {"speed": 0.5})  # steps of 0.05
+            for bad in (-1, 3.5, "warp", True, None, float("nan")):
+                with self.assertRaises(github.GitHubError):
+                    updater.set_login_speed(bad)
+            self.assertEqual(updater.login_speed(), {"speed": 0.5})
+            # a name saved by an earlier version is read as its number
+            updater.store.set_login_speed("fastest")
+            self.assertEqual(updater.login_speed(), {"speed": 0.25})
 
     def test_autologin_gives_up_clearly_when_it_can_never_tell(self):
         clock = {"t": 0.0}

@@ -94,9 +94,12 @@ class Updater:
     def login_speed(self) -> dict:
         return {"speed": self.store.login_speed()}
 
-    def set_login_speed(self, speed: str) -> dict:
-        if speed not in autologin.SPEEDS:
-            raise github.GitHubError("Pick one of the Login timing options.")
+    def set_login_speed(self, speed) -> dict:
+        if isinstance(speed, str):
+            speed = autologin.SPEEDS.get(speed, speed)
+        if isinstance(speed, bool) or not isinstance(speed, (int, float)) or not 0.0 <= speed <= autologin.MAX_FACTOR:
+            raise github.GitHubError("Pick a Login wait between 0 and 3.")
+        speed = round(float(speed) * 20) / 20  # steps of 0.05
         self.store.set_login_speed(speed)
         return {"speed": speed}
 

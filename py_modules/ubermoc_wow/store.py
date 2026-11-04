@@ -65,13 +65,19 @@ class Store:
             data["games"].setdefault(game_id, {})[key] = link
             self._save(data)
 
-    def login_speed(self) -> str:
-        """The person's "Login timing" choice: instant, fastest, faster, normal, slower or slowest."""
-        with self._lock:
-            value = self._load().get("login_speed", "normal")
-            return value if value in ("instant", "fastest", "faster", "normal", "slower", "slowest") else "normal"
+    LEGACY_SPEEDS = {"instant": 0.0, "fastest": 0.25, "faster": 0.5, "normal": 1.0, "slower": 2.0, "slowest": 3.0, "screentest": 0.5}
 
-    def set_login_speed(self, speed: str) -> None:
+    def login_speed(self) -> float:
+        """The person's "Login wait" setting: a multiple from 0 to 3 (an older version saved a name instead)."""
+        with self._lock:
+            value = self._load().get("login_speed", 1.0)
+        if isinstance(value, str):
+            value = self.LEGACY_SPEEDS.get(value, 1.0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return 1.0
+        return min(3.0, max(0.0, float(value)))
+
+    def set_login_speed(self, speed: float) -> None:
         with self._lock:
             data = self._load()
             data["login_speed"] = speed

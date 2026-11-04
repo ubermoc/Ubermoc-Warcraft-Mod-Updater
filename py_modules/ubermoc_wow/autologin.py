@@ -34,11 +34,13 @@ POLL_S = 0.05
 # After the game's startup log appears the login screen still needs a moment. How long depends on how
 # fast the device is, so it is measured: SETTLE_FACTOR times how long the game itself took to get to that
 # log (on a fast desktop: ~2.6s to the log, login screen ~1.6s later), never less than SETTLE_MIN_S and
-# never more than SETTLE_MAX_S. The person can scale the result with the "Login timing" setting;
-# "instant" skips the wait and types the moment the startup log appears.
+# never more than SETTLE_MAX_S. The person scales the result with the "Login wait" slider (0 types the
+# moment the startup log appears; 1 is the safe default).
 SETTLE_FACTOR = 1.0
 SETTLE_MIN_S = 1.5
 SETTLE_MAX_S = 20.0
+MAX_FACTOR = 3.0
+# Names an earlier version saved for the setting.
 SPEEDS = {"instant": 0.0, "fastest": 0.25, "faster": 0.5, "normal": 1.0, "slower": 2.0, "slowest": 3.0}
 KEY_HOLD_S = 0.01        # how long each typed key is held down, and the gap after it
 MOD_LEAD_S = 0.015       # Shift goes down this long before the key it changes
@@ -256,7 +258,7 @@ class AutoLogin:
         clock: Callable[[], float] = time.time,
         drawn: Callable[[list[int]], bool | None] | None = None,
         logger=None,
-        speed: Callable[[], str] = lambda: "normal",
+        speed: Callable[[], float] = lambda: 1.0,
     ):
         self._speed = speed
         self._drawn = drawn
@@ -302,8 +304,17 @@ class AutoLogin:
 
     def _settle_for(self, startup_s: float) -> float:
         """How long to wait after the startup log, for a device whose game took `startup_s` to get there."""
-        factor = SPEEDS.get(self._speed(), 1.0)
-        return min(SETTLE_MAX_S, max(SETTLE_MIN_S, startup_s * SETTLE_FACTOR) * factor)
+        return min(SETTLE_MAX_S, max(SETTLE_MIN_S, startup_s * SETTLE_FACTOR) * self._factor())
+
+    def _factor(self) -> float:
+        """The person's Login wait setting, as a multiple (0 types at once, 1 is the safe default)."""
+        value = self._speed()
+        if isinstance(value, str):
+            value = SPEEDS.get(value, 1.0)
+        try:
+            return min(MAX_FACTOR, max(0.0, float(value)))
+        except (TypeError, ValueError):
+            return 1.0
 
     def _wait_until_ready(self, folder: str, game_path: str, started_at: float, first_seen: float) -> str:
         """Wait for the login screen. Two signs are watched at once and the first one wins:
@@ -331,8 +342,8 @@ class AutoLogin:
                 log_seen_at = self._clock()
                 settle = self._settle_for(log_seen_at - first_seen)
                 self._log.info(
-                    "auto login: startup log after %.1fs; waiting %.1fs more (timing: %s, window check: %s)",
-                    log_seen_at - first_seen, settle, self._speed(), window_state,
+                    "auto login: startup log after %.1fs; waiting %.2fs more (login wait x%.2f, window check: %s)",
+                    log_seen_at - first_seen, settle, self._factor(), window_state,
                 )
             if log_seen_at is not None and self._clock() - log_seen_at >= settle:
                 self._log.info(
