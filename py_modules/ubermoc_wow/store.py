@@ -83,17 +83,6 @@ class Store:
             data["login_speed"] = speed
             self._save(data)
 
-    def screen_test(self) -> bool:
-        """Whether the "Screen test" switch is on (it only adds numbers to the log)."""
-        with self._lock:
-            return self._load().get("screen_test") is True
-
-    def set_screen_test(self, on: bool) -> None:
-        with self._lock:
-            data = self._load()
-            data["screen_test"] = bool(on)
-            self._save(data)
-
     def shortcut(self, game_id: str) -> int:
         """The Steam shortcut made to play this game, or 0."""
         with self._lock:

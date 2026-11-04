@@ -1,8 +1,8 @@
 // Copyright (c) 2026 ubermoc. All rights reserved. See LICENSE.
-import { ButtonItem, PanelSectionRow, SliderField, TextField, ToggleField } from "@decky/ui";
+import { ButtonItem, PanelSectionRow, SliderField, TextField } from "@decky/ui";
 import { useEffect, useRef, useState } from "react";
 
-import { loginSpeed, loginStatus, LoginStatus, removeLogin, Reply, saveLogin, screenTest, setLoginSpeed, setScreenTest } from "./api";
+import { loginSpeed, loginStatus, LoginStatus, removeLogin, Reply, saveLogin, setLoginSpeed } from "./api";
 import { RowLabel } from "./AddonItem";
 import { Message } from "./RepoEditor";
 
@@ -13,7 +13,6 @@ export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () =
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [probe, setProbe] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apply = (reply: Reply<LoginStatus>) => {
@@ -28,7 +27,6 @@ export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () =
   useEffect(() => {
     loginStatus().then(apply, () => setError("Couldn't read the saved password."));
     loginSpeed().then((reply) => reply.ok && setSpeed(reply.result.speed), () => undefined);
-    screenTest().then((reply) => reply.ok && setProbe(reply.result.on), () => undefined);
   }, []);
 
   const work = async (job: () => Promise<Reply<LoginStatus>>) => {
@@ -86,18 +84,6 @@ export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () =
                   const reply = await setLoginSpeed(value);
                   if (!reply.ok) setError(reply.error);
                 }, 500);
-              }}
-            />
-          </PanelSectionRow>
-          <PanelSectionRow>
-            <ToggleField
-              label="Screen test"
-              description="For testing. While Play logs in, also writes numbers about the game's picture to the plugin log. It saves no pictures and doesn't change when your password is typed."
-              checked={probe}
-              onChange={async (on) => {
-                setProbe(on);
-                const reply = await setScreenTest(on);
-                if (!reply.ok) setError(reply.error);
               }}
             />
           </PanelSectionRow>

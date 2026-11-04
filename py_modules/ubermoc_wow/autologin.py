@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Callable
 
 from . import installer
-from .screenprobe import ScreenProbe
 
 log = logging.getLogger("ubermoc_wow.autologin")
 
@@ -260,11 +259,7 @@ class AutoLogin:
         drawn: Callable[[list[int]], bool | None] | None = None,
         logger=None,
         speed: Callable[[], float] = lambda: 1.0,
-        probe=None,
-        probe_on: Callable[[], bool] = lambda: False,
     ):
-        self._probe = probe or (lambda runtime_dir: ScreenProbe(self._log, runtime_dir))
-        self._probe_on = probe_on
         self._speed = speed
         self._drawn = drawn
         self._log = logger or log
@@ -306,20 +301,6 @@ class AutoLogin:
         thread = threading.Thread(target=self._run, args=(game_id, folder, game_path, started_at, password), daemon=True)
         thread.start()
         return {"started": True}
-
-    def _start_probe(self, folder: str, game_path: str) -> None:
-        """Only when the person turned on "Screen test": log what Gamescope's video stream shows.
-        It writes numbers to the log and never affects the typing."""
-        try:
-            if not self._probe_on():
-                return
-            pids = self._pids(folder)
-            runtime = (_process_env(pids[0], ("XDG_RUNTIME_DIR",)).get("XDG_RUNTIME_DIR") if pids else "") or ""
-            if not runtime:
-                runtime = f"/run/user/{Path(game_path).stat().st_uid}"
-            self._probe(runtime).start()
-        except Exception:  # noqa: BLE001
-            self._log.exception("screen probe: couldn't start")
 
     def _settle_for(self, startup_s: float) -> float:
         """How long to wait after the startup log, for a device whose game took `startup_s` to get there."""
@@ -387,7 +368,6 @@ class AutoLogin:
                     return
                 self._sleep(0.2)
             first_seen = self._clock()
-            self._start_probe(folder, game_path)
             self._log.info("auto login: game started %.1fs after Play", first_seen - started_at)
             how = self._wait_until_ready(folder, game_path, started_at, first_seen)
             if how == "closed":
