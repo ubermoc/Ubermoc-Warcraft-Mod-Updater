@@ -51,7 +51,7 @@ class Updater:
         self.plugin_dir = Path(plugin_dir)
         self.store = Store(settings_dir)
         self.login = LoginVault(settings_dir)
-        self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""), logger=logger, speed=lambda: self.store.login_speed())
+        self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""), logger=logger, speed=lambda: self.store.login_speed(), probe_on=lambda: self.store.screen_test())
         self.catalog = self._load_catalog()
         self._games: list[discover.Game] | None = None
         self._releases: dict[tuple[str, str], tuple[float, object]] = {}
@@ -102,6 +102,15 @@ class Updater:
         speed = round(float(speed) * 20) / 20  # steps of 0.05
         self.store.set_login_speed(speed)
         return {"speed": speed}
+
+    def screen_test(self) -> dict:
+        return {"on": self.store.screen_test()}
+
+    def set_screen_test(self, on) -> dict:
+        if not isinstance(on, bool):
+            raise github.GitHubError("Screen test is on or off.")
+        self.store.set_screen_test(on)
+        return {"on": on}
 
     def start_login(self, game_id: str) -> dict:
         """Call just before starting a game: types the saved password into its login screen."""

@@ -61,6 +61,12 @@ class Plugin:
     async def set_login_speed(self, speed: str) -> dict:
         return await self._run(self.updater.set_login_speed, speed)
 
+    async def screen_test(self) -> dict:
+        return await self._run(self.updater.screen_test)
+
+    async def set_screen_test(self, on: bool) -> dict:
+        return await self._run(self.updater.set_screen_test, on)
+
     async def start_login(self, game_id: str) -> dict:
         return await self._run(self.updater.start_login, game_id)
 
