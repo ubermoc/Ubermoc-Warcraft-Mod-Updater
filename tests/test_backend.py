@@ -570,12 +570,17 @@ class Service(Base):
         with self.assertRaises(login.LoginError):
             vault.status()
 
-    def run_autologin(self, password="Pa55 w0rd!", running_before=False, starts_at=2.0, closes_before_typing=False):
+    def run_autologin(self, password="Pa55 w0rd!", running_before=False, starts_at=2.0, closes_before_typing=False, drawn_at=None):
         clock = {"t": 0.0}
         typed = []
+        self.typed_at = None
 
         class Keys:
+            def open(self):
+                typed.append(("open",))
+
             def type_text(self, text):
+                self.typed_at = clock["t"]
                 typed.append(("text", text))
 
             def press_enter(self):
@@ -594,8 +599,12 @@ class Service(Base):
         def sleep(seconds):
             clock["t"] += seconds
 
-        al = autologin.AutoLogin(lambda: password, Keys, pids, lambda path, since: clock["t"] > starts_at + 1, sleep, lambda: clock["t"])
+        keys = Keys()
+        # drawn_at=None: the screen can't be watched here, so the timed fallback is used.
+        drawn = lambda found: None if drawn_at is None else clock["t"] >= drawn_at  # noqa: E731
+        al = autologin.AutoLogin(lambda: password, lambda: keys, pids, lambda path, since: clock["t"] > starts_at + 1, sleep, lambda: clock["t"], drawn)
         first = al.begin("g1", "_retail_", "/x")
+        self.keys = keys
         for _ in range(200):
             if al.state("g1")["state"] in ("done", "failed", "skipped"):
                 break
@@ -606,7 +615,25 @@ class Service(Base):
         first, state, typed = self.run_autologin()
         self.assertTrue(first["started"])
         self.assertEqual(state["state"], "done")
-        self.assertEqual(typed, [("text", "Pa55 w0rd!"), ("enter",), ("close",)])
+        self.assertEqual(typed, [("open",), ("text", "Pa55 w0rd!"), ("enter",), ("close",)])
+        self.assertGreaterEqual(self.keys.typed_at, autologin.SETTLE_S)  # no way to see the screen: waits the fixed time
+
+    def test_autologin_types_the_moment_the_game_has_drawn_its_window(self):
+        first, state, typed = self.run_autologin(drawn_at=5.0)
+        self.assertEqual(state["state"], "done")
+        self.assertEqual(typed, [("open",), ("text", "Pa55 w0rd!"), ("enter",), ("close",)])
+        self.assertGreaterEqual(self.keys.typed_at, 5.0)
+        self.assertLess(self.keys.typed_at, 6.0)  # right away, not after the fixed wait
+
+    def test_autologin_keeps_waiting_while_the_window_is_black(self):
+        _, state, typed = self.run_autologin(drawn_at=10_000.0)
+        # never drawn: falls back to the timed wait instead of typing blind or giving up
+        self.assertEqual(state["state"], "done")
+        self.assertGreaterEqual(self.keys.typed_at, autologin.DRAWN_TIMEOUT_S)
+
+    def test_average_brightness_of_a_ppm(self):
+        self.assertEqual(autologin._mean_of_ppm(b"P6\n2 1\n255\n" + bytes([0, 0, 0, 255, 255, 255])), 127.5)
+        self.assertIsNone(autologin._mean_of_ppm(b"nonsense"))
 
     def test_autologin_never_types_into_a_game_that_was_already_running(self):
         first, state, typed = self.run_autologin(running_before=True)
@@ -617,10 +644,11 @@ class Service(Base):
         self.assertEqual((first, state["state"], typed), ({"started": False, "reason": "no password"}, "idle", []))
 
     def test_autologin_gives_up_if_the_game_never_starts_or_closes_early(self):
+        sent = lambda typed: [k for k in typed if k[0] in ("text", "enter")]  # noqa: E731
         _, state, typed = self.run_autologin(starts_at=10_000.0)
-        self.assertEqual((state["state"], typed), ("failed", []))
+        self.assertEqual((state["state"], sent(typed)), ("failed", []))
         _, state, typed = self.run_autologin(closes_before_typing=True)
-        self.assertEqual((state["state"], typed), ("failed", []))
+        self.assertEqual((state["state"], sent(typed)), ("failed", []))
 
     def test_every_printable_ascii_character_can_be_typed(self):
         printable = [chr(c) for c in range(32, 127)]

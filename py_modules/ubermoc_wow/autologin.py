@@ -15,7 +15,9 @@ from __future__ import annotations
 import fcntl
 import logging
 import os
+import re
 import struct
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -26,8 +28,12 @@ from . import installer
 log = logging.getLogger("ubermoc_wow.autologin")
 
 START_TIMEOUT_S = 90.0   # waiting for the game to start
-READY_TIMEOUT_S = 40.0   # waiting for the game's own startup log
-SETTLE_S = 10.0          # after that, for the login screen to be ready for typing
+DRAWN_TIMEOUT_S = 40.0   # waiting for the game window to stop being black
+DRAWN_BRIGHTNESS = 2.0   # average 0-255 of the window; black reads ~0.2, the login screen ~77
+POLL_S = 0.05
+READY_TIMEOUT_S = 40.0   # fallback: waiting for the game's own startup log
+SETTLE_S = 10.0          # fallback: then a fixed wait for the login screen
+KEY_HOLD_S = 0.01        # how long each key is held down, and the gap after it
 
 _UI_SET_EVBIT, _UI_SET_KEYBIT, _UI_DEV_SETUP = 0x40045564, 0x40045565, 0x405C5503
 _UI_DEV_CREATE, _UI_DEV_DESTROY = 0x5501, 0x5502
@@ -92,13 +98,13 @@ class VirtualKeyboard:
             self._emit(0, 0, 0)
         self._emit(1, code, 1)
         self._emit(0, 0, 0)
-        time.sleep(0.03)
+        time.sleep(KEY_HOLD_S)
         self._emit(1, code, 0)
         self._emit(0, 0, 0)
         if shift:
             self._emit(1, KEY_LEFTSHIFT, 0)
             self._emit(0, 0, 0)
-        time.sleep(0.03)
+        time.sleep(KEY_HOLD_S)
 
     def type_text(self, text: str) -> None:
         self.open()
@@ -129,6 +135,95 @@ def game_pids(folder: str) -> list[int]:
     return found
 
 
+def _process_env(pid: int, names: tuple[str, ...]) -> dict[str, str]:
+    try:
+        raw = Path(f"/proc/{pid}/environ").read_bytes()
+    except OSError:
+        return {}
+    found = {}
+    for item in raw.split(b"\0"):
+        key, _, value = item.partition(b"=")
+        if key.decode(errors="replace") in names:
+            found[key.decode()] = value.decode(errors="replace")
+    return found
+
+
+def _mean_of_ppm(data: bytes) -> float | None:
+    """Average brightness (0-255) of a binary PPM, or None if it isn't one."""
+    m = re.match(rb"P6\s+(\d+)\s+(\d+)\s+(\d+)\s", data)
+    if not m:
+        return None
+    pixels = data[m.end():]
+    return sum(pixels) / len(pixels) if pixels else None
+
+
+class ScreenCue:
+    """Tells when the game window has drawn something, instead of still being black.
+
+    It looks at a 5% sized copy of just the game's own window (ImageMagick's `import`, found
+    with `xprop`), so it works at any resolution and only ever sees the game. Returns None when
+    that isn't possible here (a tool is missing, no window yet), and the caller falls back to
+    a timed wait. Nothing is saved to disk.
+    """
+
+    def __init__(self) -> None:
+        self._window: str | None = None
+
+    def _env(self, pid: int) -> dict[str, str] | None:
+        """DISPLAY and XAUTHORITY for reaching the game's X server from outside its container.
+
+        The game sees its own copy of XAUTHORITY inside Steam's container (/run/pressure-vessel/...),
+        which doesn't exist out here, so Steam's own process supplies the real one.
+        """
+        env = _process_env(pid, ("DISPLAY", "XAUTHORITY"))
+        if "DISPLAY" not in env:
+            return None
+        if not os.path.exists(env.get("XAUTHORITY", "")):
+            env.pop("XAUTHORITY", None)
+            for entry in os.listdir("/proc"):
+                if not entry.isdigit():
+                    continue
+                try:
+                    if Path(f"/proc/{entry}/comm").read_text().strip() != "steam":
+                        continue
+                except OSError:
+                    continue
+                theirs = _process_env(int(entry), ("XAUTHORITY",)).get("XAUTHORITY", "")
+                if theirs and os.path.exists(theirs):
+                    env["XAUTHORITY"] = theirs
+                    break
+        return {**os.environ, **env}
+
+    def _find_window(self, pids: list[int], env: dict[str, str]) -> str | None:
+        roots = subprocess.run(["xprop", "-root", "_NET_CLIENT_LIST"], capture_output=True, text=True, env=env, timeout=3).stdout
+        for wid in re.findall(r"0x[0-9a-f]+", roots):
+            props = subprocess.run(["xprop", "-id", wid, "_NET_WM_PID"], capture_output=True, text=True, env=env, timeout=3).stdout
+            m = re.search(r"=\s*(\d+)", props)
+            if m and int(m.group(1)) in pids:
+                return wid
+        return None
+
+    def __call__(self, pids: list[int]) -> bool | None:
+        if not pids:
+            return None
+        try:
+            env = self._env(pids[0])
+            if env is None:
+                return None
+            if self._window is None:
+                self._window = self._find_window(pids, env)
+                if self._window is None:
+                    return False  # the game is running but has no window yet
+            shot = subprocess.run(["import", "-window", self._window, "-resize", "5%", "ppm:-"], capture_output=True, env=env, timeout=5)
+            if shot.returncode != 0:
+                self._window = None
+                return None
+            mean = _mean_of_ppm(shot.stdout)
+            return None if mean is None else mean > DRAWN_BRIGHTNESS
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+
 def startup_log_ready(game_path: str, since: float) -> bool:
     """The game rewrites Logs/gx.log on every start and logs 'Device Create Successful' once its graphics are up."""
     path = Path(game_path) / "Logs" / "gx.log"
@@ -149,7 +244,9 @@ class AutoLogin:
         ready: Callable[[str, float], bool] = startup_log_ready,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.time,
+        drawn: Callable[[list[int]], bool | None] | None = None,
     ):
+        self._drawn = drawn
         self._read_password = read_password
         self._keyboard = keyboard
         self._pids = pids
@@ -187,26 +284,46 @@ class AutoLogin:
         thread.start()
         return {"started": True}
 
+    def _wait_until_drawn(self, folder: str) -> bool:
+        """True once the game window has drawn something. False if that can't be told here."""
+        look = self._drawn or ScreenCue()
+        deadline = self._clock() + DRAWN_TIMEOUT_S
+        while self._clock() < deadline:
+            pids = self._pids(folder)
+            if not pids:
+                return False
+            seen = look(pids)
+            if seen is None:
+                return False
+            if seen:
+                return True
+            self._sleep(POLL_S)
+        return False
+
     def _run(self, game_id: str, folder: str, game_path: str, started_at: float, password: str) -> None:
         keyboard = None
         try:
+            # Made first: the system needs about a second to notice a new keyboard.
+            keyboard = self._keyboard()
+            keyboard.open()
             deadline = started_at + START_TIMEOUT_S
             while not self._pids(folder):
                 if self._clock() > deadline:
                     self._set(game_id, "failed", "The game didn't start, so nothing was typed.")
                     return
-                self._sleep(0.5)
-            ready_by = self._clock() + READY_TIMEOUT_S
-            while not self._ready(game_path, started_at) and self._clock() < ready_by:
-                self._sleep(0.5)
-            self._sleep(SETTLE_S)
+                self._sleep(0.2)
+            if not self._wait_until_drawn(folder):
+                # No way to see the window here: wait for the game's startup log, then a fixed time.
+                ready_by = self._clock() + READY_TIMEOUT_S
+                while not self._ready(game_path, started_at) and self._clock() < ready_by:
+                    self._sleep(0.5)
+                self._sleep(SETTLE_S)
             if not self._pids(folder):
                 self._set(game_id, "failed", "The game closed before the login screen, so nothing was typed.")
                 return
             self._set(game_id, "typing", "Logging in...")
-            keyboard = self._keyboard()
             keyboard.type_text(password)
-            self._sleep(0.3)
+            self._sleep(0.15)
             keyboard.press_enter()
             self._set(game_id, "done", "Password sent. If it asks for an authenticator code, enter it yourself.")
         except KeyboardError as e:
