@@ -13,7 +13,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "py_modules"))
 
-from ubermoc_wow import autologin, discover, github, installer, login, toc  # noqa: E402
+from ubermoc_wow import autologin, discover, github, installer, login, screenprobe, toc  # noqa: E402
 from ubermoc_wow.service import PLUGIN_NAME, Updater  # noqa: E402
 
 BUILD_INFO = (
@@ -719,6 +719,92 @@ class Service(Base):
         self.assertEqual(typed_pauses[0], autologin.MOD_LEAD_S)  # Shift is seen before the key
         self.assertIn(autologin.ENTER_HOLD_S, pauses)
         self.assertGreater(autologin.ENTER_HOLD_S, autologin.KEY_HOLD_S)
+
+    def test_screen_probe_reads_a_frame_and_survives_failures(self):
+        black = bytes(screenprobe.FRAME_BYTES)
+        self.assertEqual(screenprobe.analyse(black), (0.0, 0, 0))
+        # a frame with gold text in the middle
+        frame = bytearray(screenprobe.FRAME_BYTES)
+        x, y = int(0.5 * screenprobe.W), int(0.5 * screenprobe.H)
+        for i in range(30):
+            offset = (y * screenprobe.W + x + i) * 3
+            frame[offset : offset + 3] = bytes([230, 190, 40])
+        mean, strict, relaxed = screenprobe.analyse(bytes(frame))
+        self.assertEqual((strict, relaxed), (30, 30))
+        self.assertGreater(mean, 0)
+        dump = json.dumps([
+            {"id": 5, "type": "PipeWire:Interface:Node", "info": {"props": {"node.name": "gamescope", "media.class": "Video/Source"}}},
+            {"id": 6, "type": "PipeWire:Interface:Node", "info": {"props": {"node.name": "mic", "media.class": "Audio/Source"}}},
+            {"id": 7, "type": "PipeWire:Interface:Port"},
+        ])
+        self.assertEqual(screenprobe.video_sources(dump), [{"id": 5, "name": "gamescope", "class": "Video/Source"}])
+        lines = []
+
+        class Log:
+            def info(self, message, *args): lines.append(message % args if args else message)
+            def exception(self, message, *args): lines.append("EXC " + message)
+
+        probe = screenprobe.ScreenProbe(Log(), "/run/user/1000", which=lambda name: None)
+        probe._probe()  # tools missing: says so and stops
+        self.assertTrue(any("missing" in line for line in lines))
+        broken = screenprobe.ScreenProbe(Log(), "/run/user/1000", which=lambda name: "/x", run=mock.Mock(side_effect=OSError("boom")))
+        broken._guarded()  # an exception is logged and swallowed
+        self.assertTrue(any(line.startswith("EXC") for line in lines))
+
+    def test_the_screen_test_timing_runs_the_probe_and_still_logs_in(self):
+        started = []
+
+        class FakeProbe:
+            def __init__(self, runtime_dir): started.append(runtime_dir)
+            def start(self): started.append("started")
+
+        clock = {"t": 0.0}
+        sleep = lambda seconds: clock.__setitem__("t", clock["t"] + seconds)  # noqa: E731
+        typed = []
+
+        class Keys:
+            def open(self): pass
+            def type_text(self, text): typed.append(text)
+            def press_enter(self): typed.append("enter")
+            def close(self): pass
+
+        calls = []
+        pids = lambda folder: [7] if calls.append(1) or len(calls) > 1 else []  # noqa: E731
+        with tempfile.TemporaryDirectory() as tmp:
+            al = autologin.AutoLogin(lambda: "abc", lambda: Keys(), pids, lambda *a: clock["t"] > 3.0, sleep, lambda: clock["t"], lambda found: None, None, lambda: "screentest", FakeProbe)
+            al.begin("g1", "_retail_", tmp)
+            for _ in range(300):
+                if al.state("g1")["state"] in ("done", "failed", "skipped"):
+                    break
+                time.sleep(0.01)
+        self.assertEqual(al.state("g1")["state"], "done")
+        self.assertEqual(typed, ["abc", "enter"])
+        self.assertEqual(started[-1], "started")
+
+    def test_a_probe_that_cannot_start_does_not_stop_the_login(self):
+        class BadProbe:
+            def __init__(self, runtime_dir): raise RuntimeError("nope")
+
+        clock = {"t": 0.0}
+        sleep = lambda seconds: clock.__setitem__("t", clock["t"] + seconds)  # noqa: E731
+        typed = []
+
+        class Keys:
+            def open(self): pass
+            def type_text(self, text): typed.append(text)
+            def press_enter(self): typed.append("enter")
+            def close(self): pass
+
+        calls = []
+        pids = lambda folder: [7] if calls.append(1) or len(calls) > 1 else []  # noqa: E731
+        with tempfile.TemporaryDirectory() as tmp:
+            al = autologin.AutoLogin(lambda: "abc", lambda: Keys(), pids, lambda *a: clock["t"] > 3.0, sleep, lambda: clock["t"], lambda found: None, None, lambda: "screentest", BadProbe)
+            al.begin("g1", "_retail_", tmp)
+            for _ in range(300):
+                if al.state("g1")["state"] in ("done", "failed", "skipped"):
+                    break
+                time.sleep(0.01)
+        self.assertEqual((al.state("g1")["state"], typed), ("done", ["abc", "enter"]))
 
     def test_average_brightness_of_a_ppm(self):
         self.assertEqual(autologin._mean_of_ppm(b"P6\n2 1\n255\n" + bytes([0, 0, 0, 255, 255, 255])), 127.5)

@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import installer
+from .screenprobe import ScreenProbe
 
 log = logging.getLogger("ubermoc_wow.autologin")
 
@@ -39,7 +40,8 @@ POLL_S = 0.05
 SETTLE_FACTOR = 1.0
 SETTLE_MIN_S = 1.5
 SETTLE_MAX_S = 20.0
-SPEEDS = {"instant": 0.0, "fastest": 0.25, "faster": 0.5, "normal": 1.0, "slower": 2.0, "slowest": 3.0}
+# "screentest" waits like "faster" and also runs the screen probe, which only logs numbers.
+SPEEDS = {"instant": 0.0, "fastest": 0.25, "faster": 0.5, "normal": 1.0, "slower": 2.0, "slowest": 3.0, "screentest": 0.5}
 KEY_HOLD_S = 0.01        # how long each typed key is held down, and the gap after it
 MOD_LEAD_S = 0.015       # Shift goes down this long before the key it changes
 ENTER_HOLD_S = 0.06      # Enter is held longer: a key held only a few ms is missed by games that read input once per frame
@@ -257,7 +259,9 @@ class AutoLogin:
         drawn: Callable[[list[int]], bool | None] | None = None,
         logger=None,
         speed: Callable[[], str] = lambda: "normal",
+        probe=None,
     ):
+        self._probe = probe or (lambda runtime_dir: ScreenProbe(self._log, runtime_dir))
         self._speed = speed
         self._drawn = drawn
         self._log = logger or log
@@ -299,6 +303,19 @@ class AutoLogin:
         thread = threading.Thread(target=self._run, args=(game_id, folder, game_path, started_at, password), daemon=True)
         thread.start()
         return {"started": True}
+
+    def _start_probe(self, folder: str, game_path: str) -> None:
+        """For the "screen test" timing only: log what Gamescope's video stream shows. Never affects typing."""
+        try:
+            if self._speed() != "screentest":
+                return
+            pids = self._pids(folder)
+            runtime = (_process_env(pids[0], ("XDG_RUNTIME_DIR",)).get("XDG_RUNTIME_DIR") if pids else "") or ""
+            if not runtime:
+                runtime = f"/run/user/{Path(game_path).stat().st_uid}"
+            self._probe(runtime).start()
+        except Exception:  # noqa: BLE001
+            self._log.exception("screen probe: couldn't start")
 
     def _settle_for(self, startup_s: float) -> float:
         """How long to wait after the startup log, for a device whose game took `startup_s` to get there."""
@@ -357,6 +374,7 @@ class AutoLogin:
                     return
                 self._sleep(0.2)
             first_seen = self._clock()
+            self._start_probe(folder, game_path)
             self._log.info("auto login: game started %.1fs after Play", first_seen - started_at)
             how = self._wait_until_ready(folder, game_path, started_at, first_seen)
             if how == "closed":

@@ -75,6 +75,7 @@ export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () =
                 { data: "normal", label: "Normal" },
                 { data: "slower", label: "Slower" },
                 { data: "slowest", label: "Slowest" },
+                { data: "screentest", label: "Faster + screen test" },
               ]}
               selectedOption={speed}
               onChange={async (option) => {
