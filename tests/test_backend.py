@@ -625,11 +625,70 @@ class Service(Base):
         self.assertGreaterEqual(self.keys.typed_at, 5.0)
         self.assertLess(self.keys.typed_at, 6.0)  # right away, not after the fixed wait
 
-    def test_autologin_keeps_waiting_while_the_window_is_black(self):
+    def test_autologin_does_not_depend_on_the_window_being_readable(self):
+        # Under Gamescope the window may read as black for good: the startup log plus a fixed wait still gets there.
         _, state, typed = self.run_autologin(drawn_at=10_000.0)
-        # never drawn: falls back to the timed wait instead of typing blind or giving up
         self.assertEqual(state["state"], "done")
-        self.assertGreaterEqual(self.keys.typed_at, autologin.DRAWN_TIMEOUT_S)
+        self.assertGreaterEqual(self.keys.typed_at, autologin.SETTLE_S)
+        self.assertLess(self.keys.typed_at, autologin.SETTLE_S + 5)
+
+    def test_autologin_gives_up_clearly_when_it_can_never_tell(self):
+        clock = {"t": 0.0}
+
+        def sleep(seconds):
+            clock["t"] += seconds
+
+        class Keys:
+            def open(self): pass
+            def type_text(self, text): raise AssertionError("must not type blind")
+            def press_enter(self): raise AssertionError("must not press Enter blind")
+            def close(self): pass
+
+        calls = []
+        # not running when Play is pressed (the first look), running afterwards
+        pids = lambda folder: [7] if calls.append(1) or len(calls) > 1 else []  # noqa: E731
+        al = autologin.AutoLogin(lambda: "abc", Keys, pids, lambda *a: False, sleep, lambda: clock["t"], lambda found: None)
+        al.begin("g1", "_retail_", "/x")
+        for _ in range(300):
+            if al.state("g1")["state"] in ("done", "failed", "skipped"):
+                break
+            time.sleep(0.01)
+        self.assertEqual(al.state("g1")["state"], "failed")
+        self.assertIn("Type your password in yourself", al.state("g1")["message"])
+
+    def test_proton_tool_is_read_from_the_prefix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            steam = home / ".local/share/Steam"
+            prefix = steam / "steamapps/compatdata/42"
+            prefix.mkdir(parents=True)
+            (prefix / "version").write_text("11.0-100\n")
+            self.assertEqual(discover.proton_tool_for(str(prefix), str(home)), "")  # that Proton isn't installed
+            (steam / "steamapps/common/Proton 11.0").mkdir(parents=True)
+            self.assertEqual(discover.proton_tool_for(str(prefix), str(home)), "proton_11")
+            (prefix / "version").write_text("GE-Proton10-32\n")
+            self.assertEqual(discover.proton_tool_for(str(prefix), str(home)), "")
+            ge = steam / "compatibilitytools.d/GE-Proton10-32"
+            ge.mkdir(parents=True)
+            (ge / "compatibilitytool.vdf").write_text('"compatibilitytools"\n{\n "compat_tools"\n {\n  "GE-Proton10-32"\n  {\n  }\n }\n}\n')
+            self.assertEqual(discover.proton_tool_for(str(prefix), str(home)), "GE-Proton10-32")
+            (prefix / "version").unlink()
+            self.assertEqual(discover.proton_tool_for(str(prefix), str(home)), "")
+
+    def test_shift_goes_down_first_and_enter_is_held_longer(self):
+        events, pauses = [], []
+        kb = autologin.VirtualKeyboard()
+        kb._fd = 1
+        kb._emit = lambda kind, code, value: events.append((kind, code, value)) if kind == 1 else None
+        with mock.patch.object(autologin.time, "sleep", pauses.append):
+            kb.type_text("A")
+            typed_events, typed_pauses = list(events), list(pauses)
+            events.clear(), pauses.clear()
+            kb.press_enter()
+        self.assertEqual([e[1] for e in typed_events], [42, 30, 30, 42])  # Shift, a, a, Shift
+        self.assertEqual(typed_pauses[0], autologin.MOD_LEAD_S)  # Shift is seen before the key
+        self.assertIn(autologin.ENTER_HOLD_S, pauses)
+        self.assertGreater(autologin.ENTER_HOLD_S, autologin.KEY_HOLD_S)
 
     def test_average_brightness_of_a_ppm(self):
         self.assertEqual(autologin._mean_of_ppm(b"P6\n2 1\n255\n" + bytes([0, 0, 0, 255, 255, 255])), 127.5)

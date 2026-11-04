@@ -28,12 +28,13 @@ from . import installer
 log = logging.getLogger("ubermoc_wow.autologin")
 
 START_TIMEOUT_S = 90.0   # waiting for the game to start
-DRAWN_TIMEOUT_S = 40.0   # waiting for the game window to stop being black
+READY_TIMEOUT_S = 45.0   # after it starts, the longest wait for either sign of a ready login screen
 DRAWN_BRIGHTNESS = 2.0   # average 0-255 of the window; black reads ~0.2, the login screen ~77
 POLL_S = 0.05
-READY_TIMEOUT_S = 40.0   # fallback: waiting for the game's own startup log
-SETTLE_S = 10.0          # fallback: then a fixed wait for the login screen
-KEY_HOLD_S = 0.01        # how long each key is held down, and the gap after it
+SETTLE_S = 10.0          # after the game's startup log appears, a fixed wait for the login screen
+KEY_HOLD_S = 0.01        # how long each typed key is held down, and the gap after it
+MOD_LEAD_S = 0.015       # Shift goes down this long before the key it changes
+ENTER_HOLD_S = 0.06      # Enter is held longer: a key held only a few ms is missed by games that read input once per frame
 
 _UI_SET_EVBIT, _UI_SET_KEYBIT, _UI_DEV_SETUP = 0x40045564, 0x40045565, 0x405C5503
 _UI_DEV_CREATE, _UI_DEV_DESTROY = 0x5501, 0x5502
@@ -92,13 +93,14 @@ class VirtualKeyboard:
     def _emit(self, kind: int, code: int, value: int) -> None:
         os.write(self._fd, struct.pack("llHHi", 0, 0, kind, code, value))
 
-    def _tap(self, code: int, shift: bool) -> None:
+    def _tap(self, code: int, shift: bool, hold: float = KEY_HOLD_S) -> None:
         if shift:
             self._emit(1, KEY_LEFTSHIFT, 1)
             self._emit(0, 0, 0)
+            time.sleep(MOD_LEAD_S)  # let the game see Shift before the key it changes
         self._emit(1, code, 1)
         self._emit(0, 0, 0)
-        time.sleep(KEY_HOLD_S)
+        time.sleep(hold)
         self._emit(1, code, 0)
         self._emit(0, 0, 0)
         if shift:
@@ -117,7 +119,7 @@ class VirtualKeyboard:
 
     def press_enter(self) -> None:
         self.open()
-        self._tap(KEY_ENTER, False)
+        self._tap(KEY_ENTER, False, ENTER_HOLD_S)
 
 
 def game_pids(folder: str) -> list[int]:
@@ -245,8 +247,10 @@ class AutoLogin:
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.time,
         drawn: Callable[[list[int]], bool | None] | None = None,
+        logger=None,
     ):
         self._drawn = drawn
+        self._log = logger or log
         self._read_password = read_password
         self._keyboard = keyboard
         self._pids = pids
@@ -286,21 +290,37 @@ class AutoLogin:
         thread.start()
         return {"started": True}
 
-    def _wait_until_drawn(self, folder: str) -> bool:
-        """True once the game window has drawn something. False if that can't be told here."""
+    def _wait_until_ready(self, folder: str, game_path: str, started_at: float) -> str:
+        """Wait for the login screen. Two signs are watched at once and the first one wins:
+        the game's window has drawn something, or its startup log appeared SETTLE_S ago.
+        (Where the window can't be read, such as under Gamescope, only the log counts.)
+        Returns "window", "log", "closed" or "timeout"."""
         look = self._drawn or ScreenCue()
-        deadline = self._clock() + DRAWN_TIMEOUT_S
-        while self._clock() < deadline:
+        began = self._clock()
+        window_ok = True
+        log_seen_at = None
+        window_state = "black"
+        while self._clock() - began < READY_TIMEOUT_S + SETTLE_S:
             pids = self._pids(folder)
             if not pids:
-                return False
-            seen = look(pids)
-            if seen is None:
-                return False
-            if seen:
-                return True
-            self._sleep(POLL_S)
-        return False
+                return "closed"
+            if window_ok:
+                seen = look(pids)
+                if seen is None:
+                    window_ok, window_state = False, "unavailable"
+                elif seen:
+                    self._log.info("auto login: ready by window after %.1fs", self._clock() - began)
+                    return "window"
+            if log_seen_at is None and self._ready(game_path, started_at):
+                log_seen_at = self._clock()
+            if log_seen_at is not None and self._clock() - log_seen_at >= SETTLE_S:
+                self._log.info(
+                    "auto login: ready by startup log after %.1fs (window check: %s)", self._clock() - began, window_state
+                )
+                return "log"
+            self._sleep(POLL_S if window_ok else 0.25)
+        self._log.info("auto login: gave up after %.1fs (window check: %s)", self._clock() - began, window_state)
+        return "timeout"
 
     def _run(self, game_id: str, folder: str, game_path: str, started_at: float, password: str) -> None:
         keyboard = None
@@ -314,25 +334,25 @@ class AutoLogin:
                     self._set(game_id, "failed", "The game didn't open. Press Play to try again.")
                     return
                 self._sleep(0.2)
-            if not self._wait_until_drawn(folder):
-                # No way to see the window here: wait for the game's startup log, then a fixed time.
-                ready_by = self._clock() + READY_TIMEOUT_S
-                while not self._ready(game_path, started_at) and self._clock() < ready_by:
-                    self._sleep(0.5)
-                self._sleep(SETTLE_S)
-            if not self._pids(folder):
+            self._log.info("auto login: game started %.1fs after Play", self._clock() - started_at)
+            how = self._wait_until_ready(folder, game_path, started_at)
+            if how == "closed":
                 self._set(game_id, "failed", "The game closed too soon to log in. Press Play to try again.")
+                return
+            if how == "timeout":
+                self._set(game_id, "failed", "Couldn't tell when the login screen was ready. Type your password in yourself.")
                 return
             self._set(game_id, "typing", "Typing your password...")
             keyboard.type_text(password)
             self._sleep(0.15)
             keyboard.press_enter()
+            self._log.info("auto login: password typed and Enter pressed")
             self._set(game_id, "done", "Password sent. If it asks for a code, type it in yourself.")
         except KeyboardError as e:
-            log.error("auto login failed: %s", e)
+            self._log.error("auto login failed: %s", e)
             self._set(game_id, "failed", "Couldn't type your password on this device. Type it in yourself.")
         except Exception as e:  # noqa: BLE001
-            log.exception("auto login failed")
+            self._log.exception("auto login failed")
             self._set(game_id, "failed", "Login didn't work. Type your password in yourself.")
         finally:
             password = ""  # noqa: F841

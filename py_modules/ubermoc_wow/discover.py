@@ -282,3 +282,35 @@ def find_games(home: Path) -> list[Game]:
     # Newest client first: Midnight, then Forever, then Classic.
     games.sort(key=lambda g: (-g.interface, g.label))
     return games
+
+
+def proton_tool_for(prefix: str, home: str) -> str:
+    """Steam's own name for the Proton that built this prefix, or "" when that can't be told.
+
+    The prefix keeps the version that made it in its `version` file (for example "11.0-100").
+    Steam's official Proton is named "proton_<major>" for "Proton <major>.0" (seen live: Proton 11.0
+    is "proton_11"), and a custom one (such as GE-Proton) by the name in its compatibilitytool.vdf.
+    """
+    try:
+        version = (Path(prefix) / "version").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+    if not version:
+        return ""
+    libraries = [Path(prefix).parent.parent / "common"] + [Path(home) / root / "steamapps" / "common" for root in _STEAM_ROOTS]
+    official = re.match(r"^(\d+)\.(\d+)", version)
+    if official and official.group(2) == "0":
+        folder = f"Proton {official.group(1)}.0"
+        if any((lib / folder).is_dir() for lib in libraries):
+            return f"proton_{official.group(1)}"
+    if version.lower().startswith("experimental") and any((lib / "Proton - Experimental").is_dir() for lib in libraries):
+        return "proton_experimental"
+    for root in _STEAM_ROOTS:
+        for vdf in sorted((Path(home) / root / "compatibilitytools.d").glob("*/compatibilitytool.vdf")):
+            try:
+                found = re.search(r'"compat_tools"\s*\{\s*"([^"]+)"', vdf.read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                continue
+            if found and version in (found.group(1), vdf.parent.name):
+                return found.group(1)
+    return ""

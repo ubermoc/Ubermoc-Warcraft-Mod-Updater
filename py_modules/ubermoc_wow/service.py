@@ -44,13 +44,13 @@ def _version_tuple(text: str) -> tuple[int, ...]:
 
 
 class Updater:
-    def __init__(self, home: str, settings_dir: str, runtime_dir: str, plugin_dir: str):
+    def __init__(self, home: str, settings_dir: str, runtime_dir: str, plugin_dir: str, logger=None):
         self.home = Path(home)
         self.runtime_dir = Path(runtime_dir)
         self.plugin_dir = Path(plugin_dir)
         self.store = Store(settings_dir)
         self.login = LoginVault(settings_dir)
-        self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""))
+        self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""), logger=logger)
         self.catalog = self._load_catalog()
         self._games: list[discover.Game] | None = None
         self._releases: dict[tuple[str, str], tuple[float, object]] = {}
@@ -110,6 +110,9 @@ class Updater:
             "prefix": game.prefix,
             "prefix_appid": game.prefix_appid,
             "shortcut": self.store.shortcut(game_id),
+            # The Proton that built the prefix. Empty when it can't be told, and the panel then falls back
+            # to whatever the Battle.net shortcut uses.
+            "tool": discover.proton_tool_for(game.prefix, self.home),
         }
 
     def save_shortcut(self, game_id: str, appid: int) -> bool:

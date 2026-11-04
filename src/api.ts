@@ -17,6 +17,7 @@ export interface PlayInfo {
   prefix: string;
   prefix_appid: number;
   shortcut: number;
+  tool: string; // the Proton that built the prefix; empty when it can't be told
 }
 
 export interface LoginStatus {

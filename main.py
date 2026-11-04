@@ -21,6 +21,7 @@ class Plugin:
             decky.DECKY_PLUGIN_SETTINGS_DIR,
             decky.DECKY_PLUGIN_RUNTIME_DIR,
             decky.DECKY_PLUGIN_DIR,
+            decky.logger,
         )
         decky.logger.info(f"{decky.DECKY_PLUGIN_NAME} {self.updater.plugin_version()} started")
 
@@ -36,7 +37,7 @@ class Plugin:
             return {"ok": False, "error": str(e)}
         except Exception as e:  # noqa: BLE001
             decky.logger.exception(f"{getattr(work, '__name__', 'call')} failed")
-            return {"ok": False, "error": f"Something went wrong: {e}"}
+            return {"ok": False, "error": "Something went wrong. Try again. If it keeps happening, restart Decky."}
         return {"ok": True, "result": result}
 
     async def list_games(self, rescan: bool = False) -> dict:

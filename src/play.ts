@@ -32,8 +32,9 @@ export async function playGame(gameId: string): Promise<string> {
   if (!reply.ok) return reply.error;
   const info: PlayInfo = reply.result;
 
-  // Use the Proton the Battle.net shortcut already runs, so the prefix is opened by the version that made it.
-  const tool = win.appDetailsStore?.GetAppDetails(info.prefix_appid)?.strCompatToolName;
+  // The Proton that built the prefix opens it best. The backend reads it from the prefix itself; only if that
+  // can't be told does Play fall back to the Proton the Battle.net shortcut is set to.
+  const tool = info.tool || win.appDetailsStore?.GetAppDetails(info.prefix_appid)?.strCompatToolName;
   if (!tool) return "Play needs to know your Proton version. In Steam, open your Battle.net game, go to Properties, then Compatibility, pick a Proton, and try Play again.";
 
   let appId = info.shortcut;
