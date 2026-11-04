@@ -61,7 +61,7 @@ export function LoginSection() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </PanelSectionRow>
-          <Message text={`${warning}\nYour authenticator code is never saved. Enter it with Steam's built-in keyboard, or say it with Ubermoc Speech.`} />
+          <Message text={`${warning}\nWith a saved password, Play types it in and presses Enter for you. Your authenticator code is never saved. Enter it with Steam's built-in keyboard, or say it with Ubermoc Speech.`} />
           {error && <Message text={error} />}
           <PanelSectionRow>
             <ButtonItem layout="below" disabled={busy || password === ""} onClick={() => work(() => saveLogin(password))}>

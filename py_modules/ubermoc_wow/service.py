@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import discover, github, installer, toc
+from .autologin import AutoLogin
 from .login import LoginVault
 from .store import Store
 
@@ -49,6 +50,7 @@ class Updater:
         self.plugin_dir = Path(plugin_dir)
         self.store = Store(settings_dir)
         self.login = LoginVault(settings_dir)
+        self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""))
         self.catalog = self._load_catalog()
         self._games: list[discover.Game] | None = None
         self._releases: dict[tuple[str, str], tuple[float, object]] = {}
@@ -87,6 +89,14 @@ class Updater:
 
     def remove_login(self) -> dict:
         return self.login.remove()
+
+    def start_login(self, game_id: str) -> dict:
+        """Call just before starting a game: types the saved password into its login screen."""
+        game = self._game(game_id)
+        return self.autologin.begin(game_id, game.folder, game.path)
+
+    def login_state(self, game_id: str) -> dict:
+        return self.autologin.state(game_id)
 
     def play_info(self, game_id: str) -> dict:
         """What the panel needs to make and start a Steam shortcut for this game."""

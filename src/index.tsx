@@ -16,6 +16,7 @@ import {
   Game,
   listAddons,
   listGames,
+  loginState,
 } from "./api";
 import { DefaultAddonPrompt } from "./DefaultAddonPrompt";
 import { LoginSection } from "./LoginSection";
@@ -32,8 +33,10 @@ function shortVersion(version: string) {
 function PlayButton(props: { gameId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [note, setNote] = useState("");
 
   const play = async () => {
+    setNote("");
     setBusy(true);
     setError("");
     try {
@@ -42,11 +45,20 @@ function PlayButton(props: { gameId: string }) {
       setError(e instanceof Error ? e.message : String(e));
     }
     setTimeout(() => setBusy(false), 4000); // Steam takes a moment to start; don't launch twice
+    // Follow the automatic login, if the plugin has a saved password to type.
+    for (let i = 0; i < 60; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const run = await loginState(props.gameId);
+      if (!run.ok || run.result.state === "idle") return;
+      setNote(run.result.message);
+      if (["done", "skipped", "failed"].includes(run.result.state)) return;
+    }
   };
 
   return (
     <>
       {error && <Message text={error} />}
+      {note && <Message text={note} />}
       <PanelSectionRow>
         <ButtonItem layout="below" disabled={busy} onClick={play}>
           {busy ? "Starting..." : "Play"}

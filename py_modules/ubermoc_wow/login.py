@@ -97,8 +97,10 @@ class LoginVault:
     def save(self, password: str) -> dict:
         if not password:
             raise LoginError("Enter your password.")
-        if len(password) > MAX_PASSWORD or any(c in password for c in "\r\n\0"):
-            raise LoginError("That password isn't valid.")
+        if len(password) > MAX_PASSWORD:
+            raise LoginError("That password is too long.")
+        if not all(" " <= c <= "~" for c in password):
+            raise LoginError("Only letters, numbers and the symbols on a US keyboard can be typed in. Change your password to use only those.")
         with self._lock:
             self._write({"password": password})
         return self.status()

@@ -1,6 +1,6 @@
 {
   "name": "ubermoc-warcraft-mod-updater",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "Update World of Warcraft addons from GitHub releases in Gaming Mode",
   "type": "module",
   "scripts": {

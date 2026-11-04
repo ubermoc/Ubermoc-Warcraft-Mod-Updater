@@ -5,6 +5,7 @@ import os
 import stat
 import sys
 import tempfile
+import time
 import unittest
 import zipfile
 from pathlib import Path
@@ -12,7 +13,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "py_modules"))
 
-from ubermoc_wow import discover, github, installer, login, toc  # noqa: E402
+from ubermoc_wow import autologin, discover, github, installer, login, toc  # noqa: E402
 from ubermoc_wow.service import PLUGIN_NAME, Updater  # noqa: E402
 
 BUILD_INFO = (
@@ -568,6 +569,71 @@ class Service(Base):
         vault.path.write_text("{broken")
         with self.assertRaises(login.LoginError):
             vault.status()
+
+    def run_autologin(self, password="Pa55 w0rd!", running_before=False, starts_at=2.0, closes_before_typing=False):
+        clock = {"t": 0.0}
+        typed = []
+
+        class Keys:
+            def type_text(self, text):
+                typed.append(("text", text))
+
+            def press_enter(self):
+                typed.append(("enter",))
+
+            def close(self):
+                typed.append(("close",))
+
+        def pids(folder):
+            if running_before and not clock["t"]:
+                return [7]
+            if closes_before_typing and clock["t"] > starts_at + autologin.SETTLE_S - 1:
+                return []
+            return [7] if clock["t"] >= starts_at else []
+
+        def sleep(seconds):
+            clock["t"] += seconds
+
+        al = autologin.AutoLogin(lambda: password, Keys, pids, lambda path, since: clock["t"] > starts_at + 1, sleep, lambda: clock["t"])
+        first = al.begin("g1", "_retail_", "/x")
+        for _ in range(200):
+            if al.state("g1")["state"] in ("done", "failed", "skipped"):
+                break
+            time.sleep(0.01)
+        return first, al.state("g1"), typed
+
+    def test_autologin_types_the_password_then_enter_once(self):
+        first, state, typed = self.run_autologin()
+        self.assertTrue(first["started"])
+        self.assertEqual(state["state"], "done")
+        self.assertEqual(typed, [("text", "Pa55 w0rd!"), ("enter",), ("close",)])
+
+    def test_autologin_never_types_into_a_game_that_was_already_running(self):
+        first, state, typed = self.run_autologin(running_before=True)
+        self.assertEqual((first["started"], first["reason"], state["state"], typed), (False, "running", "skipped", []))
+
+    def test_autologin_does_nothing_without_a_saved_password(self):
+        first, state, typed = self.run_autologin(password="")
+        self.assertEqual((first, state["state"], typed), ({"started": False, "reason": "no password"}, "idle", []))
+
+    def test_autologin_gives_up_if_the_game_never_starts_or_closes_early(self):
+        _, state, typed = self.run_autologin(starts_at=10_000.0)
+        self.assertEqual((state["state"], typed), ("failed", []))
+        _, state, typed = self.run_autologin(closes_before_typing=True)
+        self.assertEqual((state["state"], typed), ("failed", []))
+
+    def test_every_printable_ascii_character_can_be_typed(self):
+        printable = [chr(c) for c in range(32, 127)]
+        self.assertTrue(autologin.typable("".join(printable)))
+        self.assertFalse(autologin.typable("pässword"))
+        plain = [autologin.CHAR_MAP[c] for c in "abcdefghijklmnopqrstuvwxyz0123456789"]
+        self.assertEqual(len({code for code, _ in plain}), 36)
+        self.assertEqual(autologin.CHAR_MAP["A"], (autologin.CHAR_MAP["a"][0], True))
+        self.assertEqual(autologin.CHAR_MAP["!"], (autologin.CHAR_MAP["1"][0], True))
+
+    def test_password_with_untypable_characters_is_refused_when_saved(self):
+        with self.assertRaises(login.LoginError):
+            self.vault().save("pässword")
 
     def test_plugin_zip_checks(self):
         self.up._check_plugin_zip(self.plugin_zip(self.tmp / "ok.zip"))

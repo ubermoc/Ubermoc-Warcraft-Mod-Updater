@@ -54,6 +54,12 @@ class Plugin:
     async def remove_login(self) -> dict:
         return await self._run(self.updater.remove_login)
 
+    async def start_login(self, game_id: str) -> dict:
+        return await self._run(self.updater.start_login, game_id)
+
+    async def login_state(self, game_id: str) -> dict:
+        return await self._run(self.updater.login_state, game_id)
+
     async def play_info(self, game_id: str) -> dict:
         return await self._run(self.updater.play_info, game_id)
 

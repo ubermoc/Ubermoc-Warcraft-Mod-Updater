@@ -1,5 +1,5 @@
 // Copyright (c) 2026 ubermoc. All rights reserved. See LICENSE.
-import { PlayInfo, playInfo, saveShortcut } from "./api";
+import { PlayInfo, playInfo, saveShortcut, startLogin } from "./api";
 
 // Steam's own client API. Its typings don't match every Steam build, so each call
 // is checked on the live client first and a missing one ends in a clear error.
@@ -50,6 +50,8 @@ export async function playGame(gameId: string): Promise<string> {
   apps.SetShortcutLaunchOptions(appId, `STEAM_COMPAT_DATA_PATH="${info.prefix}" %command%`);
   apps.SpecifyCompatTool(appId, tool);
   await wait(500);
+  // Before the launch, so a game that was already running is never typed into.
+  await startLogin(gameId);
   // Steam's own URL starts a shortcut in every Steam mode. Apps.RunGame did nothing on a live client.
   const steamGameId = (BigInt(appId) << 32n) | 0x02000000n;
   win.SteamClient.URL.ExecuteSteamURL(`steam://rungameid/${steamGameId}`);

@@ -24,6 +24,11 @@ export interface LoginStatus {
   encrypted: boolean;
 }
 
+export interface LoginRun {
+  state: "idle" | "waiting" | "typing" | "done" | "skipped" | "failed";
+  message: string;
+}
+
 export interface AddonRow {
   key: string;
   title: string;
@@ -76,6 +81,8 @@ export const saveShortcut = callable<[gameId: string, appid: number], Reply<bool
 export const loginStatus = callable<[], Reply<LoginStatus>>("login_status");
 export const saveLogin = callable<[password: string], Reply<LoginStatus>>("save_login");
 export const removeLogin = callable<[], Reply<LoginStatus>>("remove_login");
+export const startLogin = callable<[gameId: string], Reply<{ started: boolean; reason?: string }>>("start_login");
+export const loginState = callable<[gameId: string], Reply<LoginRun>>("login_state");
 export const checkPlugin = callable<[], Reply<PluginInfo>>("check_plugin");
 export const installPluginUpdate = callable<[], Reply<{ version: string }>>("install_plugin_update");
 
