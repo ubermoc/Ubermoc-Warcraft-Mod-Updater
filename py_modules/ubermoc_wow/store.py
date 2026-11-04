@@ -69,7 +69,7 @@ class Store:
         """The person's "Login timing" choice: instant, fastest, faster, normal, slower or slowest."""
         with self._lock:
             value = self._load().get("login_speed", "normal")
-            return value if value in ("instant", "fastest", "faster", "normal", "slower", "slowest", "screentest") else "normal"
+            return value if value in ("instant", "fastest", "faster", "normal", "slower", "slowest") else "normal"
 
     def set_login_speed(self, speed: str) -> None:
         with self._lock:
