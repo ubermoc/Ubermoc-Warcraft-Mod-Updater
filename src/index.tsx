@@ -39,12 +39,15 @@ function PlayButton(props: { gameId: string }) {
     setNote("");
     setBusy(true);
     setError("");
+    let problem = "";
     try {
-      setError(await playGame(props.gameId));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      problem = await playGame(props.gameId);
+    } catch {
+      problem = "Play couldn't start the game. Try again. If it keeps happening, restart Steam.";
     }
-    setTimeout(() => setBusy(false), 4000); // Steam takes a moment to start; don't launch twice
+    setError(problem);
+    setTimeout(() => setBusy(false), problem ? 0 : 4000); // Steam takes a moment to start; don't launch twice
+    if (problem) return; // nothing was launched, so there is no login to follow
     // Follow the automatic login, if the plugin has a saved password to type.
     for (let i = 0; i < 60; i++) {
       await new Promise((resolve) => setTimeout(resolve, 2000));

@@ -102,7 +102,7 @@ class Updater:
         """What the panel needs to make and start a Steam shortcut for this game."""
         game = self._game(game_id)
         if not game.exe:
-            raise github.GitHubError("This game can't be started from here. Its Wow.exe wasn't found in a Steam prefix.")
+            raise github.GitHubError("Play can't find this game's Wow.exe. Install the game with Battle.net in Steam first, then try again.")
         return {
             "name": f"World of Warcraft {game.label}",
             "exe": game.exe,

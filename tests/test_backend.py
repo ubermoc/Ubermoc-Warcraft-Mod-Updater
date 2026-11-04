@@ -643,6 +643,21 @@ class Service(Base):
         first, state, typed = self.run_autologin(password="")
         self.assertEqual((first, state["state"], typed), ({"started": False, "reason": "no password"}, "idle", []))
 
+    def test_a_run_with_no_saved_password_shows_no_note_from_an_earlier_run(self):
+        password = ["abc"]
+        al = autologin.AutoLogin(lambda: password[0], object, lambda folder: [7], lambda *a: True, lambda s: None, time.time, lambda pids: True)
+        al.begin("g1", "_retail_", "/x")
+        self.assertEqual(al.state("g1")["state"], "skipped")  # the game was already running
+        password[0] = ""
+        al.begin("g1", "_retail_", "/x")
+        self.assertEqual(al.state("g1")["state"], "idle")
+
+    def test_failure_messages_tell_the_user_what_to_do(self):
+        _, state, _ = self.run_autologin(starts_at=10_000.0)
+        self.assertIn("Press Play", state["message"])
+        _, state, _ = self.run_autologin(running_before=True)
+        self.assertIn("press Play", state["message"])
+
     def test_autologin_gives_up_if_the_game_never_starts_or_closes_early(self):
         sent = lambda typed: [k for k in typed if k[0] in ("text", "enter")]  # noqa: E731
         _, state, typed = self.run_autologin(starts_at=10_000.0)

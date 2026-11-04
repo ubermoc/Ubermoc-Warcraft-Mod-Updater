@@ -271,9 +271,11 @@ class AutoLogin:
         except Exception:  # noqa: BLE001  an unreadable login just means no auto login
             password = ""
         if not password:
+            with self._lock:
+                self._states.pop(game_id, None)  # never show a note left over from an earlier run
             return {"started": False, "reason": "no password"}
         if self._pids(folder):
-            self._set(game_id, "skipped", "The game is already running, so nothing was typed.")
+            self._set(game_id, "skipped", "The game was already open, so your password wasn't typed. Close the game, then press Play.")
             return {"started": False, "reason": "running"}
         with self._lock:
             if self._states.get(game_id, {}).get("state") in ("waiting", "typing"):
@@ -309,7 +311,7 @@ class AutoLogin:
             deadline = started_at + START_TIMEOUT_S
             while not self._pids(folder):
                 if self._clock() > deadline:
-                    self._set(game_id, "failed", "The game didn't start, so nothing was typed.")
+                    self._set(game_id, "failed", "The game didn't open. Press Play to try again.")
                     return
                 self._sleep(0.2)
             if not self._wait_until_drawn(folder):
@@ -319,19 +321,19 @@ class AutoLogin:
                     self._sleep(0.5)
                 self._sleep(SETTLE_S)
             if not self._pids(folder):
-                self._set(game_id, "failed", "The game closed before the login screen, so nothing was typed.")
+                self._set(game_id, "failed", "The game closed too soon to log in. Press Play to try again.")
                 return
-            self._set(game_id, "typing", "Logging in...")
+            self._set(game_id, "typing", "Typing your password...")
             keyboard.type_text(password)
             self._sleep(0.15)
             keyboard.press_enter()
-            self._set(game_id, "done", "Password sent. If it asks for an authenticator code, enter it yourself.")
+            self._set(game_id, "done", "Password sent. If it asks for a code, type it in yourself.")
         except KeyboardError as e:
             log.error("auto login failed: %s", e)
-            self._set(game_id, "failed", str(e))
+            self._set(game_id, "failed", "Couldn't type your password on this device. Type it in yourself.")
         except Exception as e:  # noqa: BLE001
             log.exception("auto login failed")
-            self._set(game_id, "failed", f"Something went wrong: {e.__class__.__name__}")
+            self._set(game_id, "failed", "Login didn't work. Type your password in yourself.")
         finally:
             password = ""  # noqa: F841
             if keyboard is not None:

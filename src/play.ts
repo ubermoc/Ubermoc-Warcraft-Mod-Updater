@@ -26,7 +26,7 @@ export async function playGame(gameId: string): Promise<string> {
   const win = window as unknown as SteamWindow;
   const apps = win.SteamClient?.Apps;
   if (!apps?.AddShortcut || !apps.SpecifyCompatTool || !win.SteamClient?.URL?.ExecuteSteamURL) {
-    return "This version of Steam can't make shortcuts from here.";
+    return "Steam can't set up Play on this version. Update Steam, then try again.";
   }
   const reply = await playInfo(gameId);
   if (!reply.ok) return reply.error;
@@ -34,12 +34,12 @@ export async function playGame(gameId: string): Promise<string> {
 
   // Use the Proton the Battle.net shortcut already runs, so the prefix is opened by the version that made it.
   const tool = win.appDetailsStore?.GetAppDetails(info.prefix_appid)?.strCompatToolName;
-  if (!tool) return "Couldn't tell which Proton this game's Battle.net shortcut uses.";
+  if (!tool) return "Play needs to know your Proton version. In Steam, open your Battle.net game, go to Properties, then Compatibility, pick a Proton, and try Play again.";
 
   let appId = info.shortcut;
   if (!appId || !win.appStore?.GetAppOverviewByAppID(appId)) {
     appId = await apps.AddShortcut(info.name, info.exe, info.start_dir, "");
-    if (!appId) return "Steam wouldn't create the shortcut.";
+    if (!appId) return "Steam wouldn't add the Play shortcut. Restart Steam and try again.";
     await saveShortcut(gameId, appId);
     await wait(500); // Steam isn't ready for changes the instant it returns
   }

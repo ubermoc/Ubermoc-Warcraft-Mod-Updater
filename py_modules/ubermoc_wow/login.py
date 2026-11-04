@@ -77,7 +77,7 @@ class LoginVault:
         except FileNotFoundError:
             return None
         except (OSError, ValueError):
-            raise LoginError("The saved login couldn't be read. Remove it and save it again.")
+            raise LoginError("The saved password can't be read. Remove it, then save it again.")
         try:
             if body.get("method") == "systemd-creds":
                 sealed = base64.b64decode(body["data"])
@@ -85,7 +85,7 @@ class LoginVault:
             else:
                 record = {"password": body.get("password", "")}
         except (OSError, subprocess.SubprocessError, ValueError, KeyError):
-            raise LoginError("The saved login couldn't be decrypted on this device. Remove it and save it again.")
+            raise LoginError("This device can't unlock the saved password. Remove it, then save it again.")
         return {"password": str(record.get("password", ""))}
 
     # ---------- what the panel sees ----------
@@ -98,9 +98,9 @@ class LoginVault:
         if not password:
             raise LoginError("Enter your password.")
         if len(password) > MAX_PASSWORD:
-            raise LoginError("That password is too long.")
+            raise LoginError("That password is too long. Use 256 characters or fewer.")
         if not all(" " <= c <= "~" for c in password):
-            raise LoginError("Only letters, numbers and the symbols on a US keyboard can be typed in. Change your password to use only those.")
+            raise LoginError("Play can only type letters, numbers and US keyboard symbols. Your password has something else, so you'll need to type it in yourself.")
         with self._lock:
             self._write({"password": password})
         return self.status()
