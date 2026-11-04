@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from typing import Callable
@@ -133,13 +134,16 @@ class ScreenProbe:
         if chosen is None:
             self._log.info("screen probe: stopped, no Gamescope video source (this may not be Game Mode)")
             return
+        # always-copy=true matters: without it the PipeWire source crashed after its first frame in testing.
         command = [
-            "gst-launch-1.0", "-q", "pipewiresrc", f"path={chosen['id']}", "!",
-            "videorate", "!", f"video/x-raw,framerate={FPS}/1", "!",
+            "gst-launch-1.0", "pipewiresrc", f"path={chosen['id']}", "always-copy=true", "!",
+            "videorate", "drop-only=true", "!", f"video/x-raw,framerate={FPS}/1", "!",
             "videoconvert", "!", "videoscale", "!", f"video/x-raw,format=RGB,width={W},height={H}", "!",
             "fdsink", "fd=1",
         ]
-        self._proc = self._popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        # GStreamer's own messages go to a file (a pipe nobody reads would eventually block it) and are logged at the end.
+        messages = tempfile.TemporaryFile()
+        self._proc = self._popen(command, stdout=subprocess.PIPE, stderr=messages, env=env)
         proc = self._proc
         self._log.info("screen probe: watching '%s' (node %s), started %.1fs in", chosen["name"], chosen["id"], self._clock() - began)
         series = []
@@ -156,6 +160,8 @@ class ScreenProbe:
             if len(data) < FRAME_BYTES:
                 break
             now = self._clock() - start
+            if series and now - series[-1][0] < 1.0 / FPS:
+                continue  # the stream can run faster than we need; reading a frame is cheap, analysing it is not
             mean, strict, relaxed = analyse(data)
             series.append((now, mean, strict, relaxed))
             first.setdefault("frame", now)
@@ -165,20 +171,24 @@ class ScreenProbe:
                 first.setdefault("gold_strict", now)
             if relaxed >= 20:
                 first.setdefault("gold_relaxed", now)
+        self._kill_proc(proc)
+        try:
+            messages.seek(0)
+            said = messages.read(400).decode(errors="replace").replace("\n", " ").strip()
+        except (OSError, ValueError):
+            said = ""
+        finally:
+            messages.close()
+        if said:
+            self._log.info("screen probe: GStreamer said: %s", said)
         if not series:
-            error = b""
-            try:
-                proc.kill()
-                error = proc.stderr.read(300)
-            except (OSError, ValueError):
-                pass
-            self._log.info("screen probe: no frames. GStreamer said: %s", error.decode(errors="replace").strip() or "nothing")
+            self._log.info("screen probe: no frames arrived")
             return
         self._log.info(
             "screen probe: %d frames. first frame %s, first not-black %s, gold (strict) %s, gold (relaxed) %s; seconds after the probe started",
             len(series), *(("%.1f" % first[k]) if k in first else "never" for k in ("frame", "non_black", "gold_strict", "gold_relaxed")),
         )
-        step = max(1, FPS // 4)  # about 4 samples a second
+        step = max(1, FPS // 3)  # about 3 samples a second
         sampled = [f"{t:.1f}s:{m:.0f}/{s}/{r}" for t, m, s, r in series[::step]]
         for i in range(0, len(sampled), 20):
             self._log.info("screen probe: brightness/gold-strict/gold-relaxed %s", " ".join(sampled[i : i + 20]))
