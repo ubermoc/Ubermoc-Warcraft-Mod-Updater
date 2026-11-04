@@ -134,9 +134,10 @@ class ScreenProbe:
         if chosen is None:
             self._log.info("screen probe: stopped, no Gamescope video source (this may not be Game Mode)")
             return
+        # -q keeps GStreamer's status text out of the picture data on stdout; errors still go to stderr.
         # always-copy=true matters: without it the PipeWire source crashed after its first frame in testing.
         command = [
-            "gst-launch-1.0", "pipewiresrc", f"path={chosen['id']}", "always-copy=true", "!",
+            "gst-launch-1.0", "-q", "pipewiresrc", f"path={chosen['id']}", "always-copy=true", "!",
             "videorate", "drop-only=true", "!", f"video/x-raw,framerate={FPS}/1", "!",
             "videoconvert", "!", "videoscale", "!", f"video/x-raw,format=RGB,width={W},height={H}", "!",
             "fdsink", "fd=1",
