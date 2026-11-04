@@ -1,5 +1,5 @@
 # Copyright (c) 2026 ubermoc. All rights reserved. See LICENSE.
-"""The saved Battle.net login: an email and, if the user chooses, a password.
+"""The saved Battle.net password. The game remembers the account name itself.
 
 The password is encrypted with systemd-creds, which keeps its key where only root can
 read it and, when the machine has a TPM, ties it to that chip. Where that isn't
@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Callable
 
 CRED_NAME = "ubermoc-wow-login"
-MAX_EMAIL = 320
 MAX_PASSWORD = 256
 
 
@@ -84,32 +83,24 @@ class LoginVault:
                 sealed = base64.b64decode(body["data"])
                 record = json.loads(self._run(["decrypt", f"--name={CRED_NAME}", "-", "-"], sealed))
             else:
-                record = {"email": body.get("email", ""), "password": body.get("password", "")}
+                record = {"password": body.get("password", "")}
         except (OSError, subprocess.SubprocessError, ValueError, KeyError):
             raise LoginError("The saved login couldn't be decrypted on this device. Remove it and save it again.")
-        return {"email": str(record.get("email", "")), "password": str(record.get("password", ""))}
+        return {"password": str(record.get("password", ""))}
 
     # ---------- what the panel sees ----------
     def status(self) -> dict:
         with self._lock:
             saved = self._read()
-            return {
-                "email": saved["email"] if saved else "",
-                "has_password": bool(saved and saved["password"]),
-                "encrypted": self.encrypts(),
-            }
+            return {"has_password": bool(saved and saved["password"]), "encrypted": self.encrypts()}
 
-    def save(self, email: str, password: str) -> dict:
-        email, password = email.strip(), password
-        if not email:
-            raise LoginError("Enter your email address.")
-        if len(email) > MAX_EMAIL or len(password) > MAX_PASSWORD or any(c in email + password for c in "\r\n\0"):
-            raise LoginError("That email or password isn't valid.")
+    def save(self, password: str) -> dict:
+        if not password:
+            raise LoginError("Enter your password.")
+        if len(password) > MAX_PASSWORD or any(c in password for c in "\r\n\0"):
+            raise LoginError("That password isn't valid.")
         with self._lock:
-            if not password:
-                old = self._read()  # empty means keep the saved password; Remove clears it
-                password = old["password"] if old else ""
-            self._write({"email": email, "password": password})
+            self._write({"password": password})
         return self.status()
 
     def remove(self) -> dict:

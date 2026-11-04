@@ -82,8 +82,8 @@ class Updater:
     def login_status(self) -> dict:
         return self.login.status()
 
-    def save_login(self, email: str, password: str) -> dict:
-        return self.login.save(email, password)
+    def save_login(self, password: str) -> dict:
+        return self.login.save(password)
 
     def remove_login(self) -> dict:
         return self.login.remove()

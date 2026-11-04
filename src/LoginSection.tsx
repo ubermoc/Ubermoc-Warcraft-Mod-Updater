@@ -6,16 +6,10 @@ import { loginStatus, LoginStatus, removeLogin, Reply, saveLogin } from "./api";
 import { RowLabel } from "./AddonItem";
 import { Message } from "./RepoEditor";
 
-function summary(status: LoginStatus | null) {
-  if (!status || !status.email) return "Not saved";
-  return status.has_password ? "Email and password saved" : "Email saved";
-}
-
-// One login for every game. The password goes to the backend and never comes back.
+// The game remembers the account name itself. Only the password is saved here, and it never comes back.
 export function LoginSection() {
   const [status, setStatus] = useState<LoginStatus | null>(null);
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,12 +20,11 @@ export function LoginSection() {
       return;
     }
     setStatus(reply.result);
-    setEmail(reply.result.email);
     setPassword("");
   };
 
   useEffect(() => {
-    loginStatus().then(apply, () => setError("Couldn't read the saved login."));
+    loginStatus().then(apply, () => setError("Couldn't read the saved password."));
   }, []);
 
   const work = async (job: () => Promise<Reply<LoginStatus>>) => {
@@ -53,18 +46,15 @@ export function LoginSection() {
     <>
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={() => setOpen(!open)}>
-          <RowLabel title="Login" detail={summary(status)} open={open} />
+          <RowLabel title="Login" detail={status?.has_password ? "Password saved" : "Not saved"} open={open} />
         </ButtonItem>
       </PanelSectionRow>
       {open && (
         <>
           <PanelSectionRow>
-            <TextField label="Email address" value={email} disabled={busy} onChange={(e) => setEmail(e.target.value)} />
-          </PanelSectionRow>
-          <PanelSectionRow>
             <TextField
               label="Password"
-              description={status?.has_password ? "Saved. Type a new one to replace it." : "Optional. Leave it empty to save only your email."}
+              description={status?.has_password ? "Saved. Type a new one to replace it." : undefined}
               bIsPassword
               value={password}
               disabled={busy}
@@ -74,14 +64,14 @@ export function LoginSection() {
           <Message text={`${warning}\nYour authenticator code is never saved. Enter it with Steam's built-in keyboard, or say it with Ubermoc Speech.`} />
           {error && <Message text={error} />}
           <PanelSectionRow>
-            <ButtonItem layout="below" disabled={busy || email.trim() === ""} onClick={() => work(() => saveLogin(email, password))}>
+            <ButtonItem layout="below" disabled={busy || password === ""} onClick={() => work(() => saveLogin(password))}>
               {busy ? "Working..." : "Save"}
             </ButtonItem>
           </PanelSectionRow>
-          {status?.email && (
+          {status?.has_password && (
             <PanelSectionRow>
               <ButtonItem layout="below" disabled={busy} onClick={() => work(removeLogin)}>
-                Remove saved login
+                Remove saved password
               </ButtonItem>
             </PanelSectionRow>
           )}

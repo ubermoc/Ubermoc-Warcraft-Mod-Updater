@@ -48,8 +48,8 @@ class Plugin:
     async def login_status(self) -> dict:
         return await self._run(self.updater.login_status)
 
-    async def save_login(self, email: str, password: str) -> dict:
-        return await self._run(self.updater.save_login, email, password)
+    async def save_login(self, password: str) -> dict:
+        return await self._run(self.updater.save_login, password)
 
     async def remove_login(self) -> dict:
         return await self._run(self.updater.remove_login)

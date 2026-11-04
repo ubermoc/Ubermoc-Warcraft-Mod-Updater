@@ -20,7 +20,6 @@ export interface PlayInfo {
 }
 
 export interface LoginStatus {
-  email: string;
   has_password: boolean;
   encrypted: boolean;
 }
@@ -75,7 +74,7 @@ export const dismissDefaultAddon = callable<[gameId: string, folder: string], Re
 export const playInfo = callable<[gameId: string], Reply<PlayInfo>>("play_info");
 export const saveShortcut = callable<[gameId: string, appid: number], Reply<boolean>>("save_shortcut");
 export const loginStatus = callable<[], Reply<LoginStatus>>("login_status");
-export const saveLogin = callable<[email: string, password: string], Reply<LoginStatus>>("save_login");
+export const saveLogin = callable<[password: string], Reply<LoginStatus>>("save_login");
 export const removeLogin = callable<[], Reply<LoginStatus>>("remove_login");
 export const checkPlugin = callable<[], Reply<PluginInfo>>("check_plugin");
 export const installPluginUpdate = callable<[], Reply<{ version: string }>>("install_plugin_update");

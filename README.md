@@ -18,7 +18,7 @@ Together: the Updater keeps the addon current, Ubermoc UI lets you play, and Ube
 
 ## Use
 
-- Login, at the top, saves one Battle.net email and, if you choose, a password for both games. The password is encrypted with a key kept on the device (and tied to its TPM where there is one), or kept in a file only an administrator can read if the device can't encrypt. It's never shown again, and your authenticator code is never saved. Saving a login does not sign you in by itself yet.
+- Login, at the top, saves your Battle.net password for both games. The game remembers your account name itself. The password is encrypted with a key kept on the device (and tied to its TPM where there is one), or kept in a file only an administrator can read if the device can't encrypt. It's never shown again, and your authenticator code is never saved. Saving a login does not sign you in by itself yet.
 - Play starts the game directly, without the Battle.net launcher. It makes a Steam shortcut called World of Warcraft Midnight (or Forever) that uses the same Proton and game files as your Battle.net install. Battle.net is not needed once the game is installed.
 - Open a game to see its addons. Only one game and one addon stay open at a time.
 - An addon that isn't linked can be linked by opening it, entering `owner/repo` or a GitHub link, and pressing Check. Save once the result looks right.

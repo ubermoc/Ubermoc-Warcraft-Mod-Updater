@@ -529,35 +529,41 @@ class Service(Base):
 
         return login.LoginVault(self.tmp / "vault", run)
 
-    def test_login_is_encrypted_and_never_shown_back(self):
+    def test_password_is_encrypted_and_never_shown_back(self):
         vault = self.vault()
-        status = vault.save("me@example.com", "s3cret")
-        self.assertEqual(status, {"email": "me@example.com", "has_password": True, "encrypted": True})
+        status = vault.save("s3cret")
+        self.assertEqual(status, {"has_password": True, "encrypted": True})
         self.assertNotIn("s3cret", str(status))
         self.assertNotIn(b"s3cret", vault.path.read_bytes())
         self.assertEqual(stat.S_IMODE(vault.path.stat().st_mode), 0o600)
-        self.assertEqual(vault.read(), {"email": "me@example.com", "password": "s3cret"})
+        self.assertEqual(vault.read(), {"password": "s3cret"})
 
-    def test_login_falls_back_to_a_root_only_file(self):
+    def test_password_falls_back_to_a_root_only_file(self):
         vault = self.vault(encrypting=False)
-        self.assertFalse(vault.save("me@example.com", "pw")["encrypted"])
+        self.assertFalse(vault.save("pw")["encrypted"])
         self.assertEqual(stat.S_IMODE(vault.path.stat().st_mode), 0o600)
         self.assertEqual(vault.read()["password"], "pw")
 
-    def test_empty_password_keeps_the_saved_one_and_remove_clears_it(self):
+    def test_saving_replaces_and_remove_clears_the_password(self):
         vault = self.vault()
-        vault.save("me@example.com", "pw")
-        self.assertTrue(vault.save("new@example.com", "")["has_password"])
-        self.assertEqual(vault.read(), {"email": "new@example.com", "password": "pw"})
-        self.assertEqual(vault.remove(), {"email": "", "has_password": False, "encrypted": True})
+        vault.save("one")
+        vault.save("two")
+        self.assertEqual(vault.read(), {"password": "two"})
+        self.assertEqual(vault.remove(), {"has_password": False, "encrypted": True})
         self.assertFalse(vault.path.exists())
-        self.assertFalse(self.vault().save("only@example.com", "")["has_password"])
 
-    def test_login_checks_what_it_is_given(self):
+    def test_a_login_saved_by_0_1_8_still_reads_as_a_password(self):
+        vault = self.vault(encrypting=False)
+        vault.path.parent.mkdir(parents=True, exist_ok=True)
+        vault.path.write_text(json.dumps({"v": 1, "method": "file", "email": "me@example.com", "password": "old"}))
+        self.assertEqual(vault.read(), {"password": "old"})
+        self.assertTrue(vault.status()["has_password"])
+
+    def test_password_checks_what_it_is_given(self):
         vault = self.vault()
-        for email, password in (("", "x"), ("a@b.c", "x\ny"), ("a@b.c", "x" * 300)):
+        for password in ("", "x\ny", "x" * 300):
             with self.assertRaises(login.LoginError):
-                vault.save(email, password)
+                vault.save(password)
         vault.path.parent.mkdir(parents=True, exist_ok=True)
         vault.path.write_text("{broken")
         with self.assertRaises(login.LoginError):
