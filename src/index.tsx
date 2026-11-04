@@ -74,6 +74,7 @@ function Content() {
   // Only one game and one row inside it can be open at a time.
   const [openGame, setOpenGame] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
   const [rows, setRows] = useState<AddonRow[]>([]);
   const [statuses, setStatuses] = useState<Record<string, AddonStatus>>({});
   const [listError, setListError] = useState("");
@@ -114,6 +115,7 @@ function Content() {
   }, []);
 
   const toggleGame = (id: string) => {
+    setLoginOpen(false); // only one section is open at a time
     setOpenRow(null);
     setRows([]);
     setStatuses({});
@@ -125,6 +127,18 @@ function Content() {
       setOpenGame(id);
       loadGame(id, false);
     }
+  };
+
+  const toggleLogin = () => {
+    if (!loginOpen) {
+      setOpenGame(null);
+      setOpenRow(null);
+      setRows([]);
+      setStatuses({});
+      setListError("");
+      setSuggested([]);
+    }
+    setLoginOpen(!loginOpen);
   };
 
   const toggleRow = (key: string) => setOpenRow((current) => (current === key ? null : key));
@@ -147,7 +161,7 @@ function Content() {
   return (
     <>
       <PanelSection>
-        <LoginSection />
+        <LoginSection open={loginOpen} onToggle={toggleLogin} />
       </PanelSection>
       <PanelSection title="World of Warcraft">
         {games === null && <Message text="Looking for World of Warcraft..." />}

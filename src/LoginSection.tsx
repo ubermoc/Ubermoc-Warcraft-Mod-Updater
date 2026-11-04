@@ -7,9 +7,8 @@ import { RowLabel } from "./AddonItem";
 import { Message } from "./RepoEditor";
 
 // The game remembers the account name itself. Only the password is saved here, and it never comes back.
-export function LoginSection() {
+export function LoginSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const [status, setStatus] = useState<LoginStatus | null>(null);
-  const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,7 +44,7 @@ export function LoginSection() {
   return (
     <>
       <PanelSectionRow>
-        <ButtonItem layout="below" onClick={() => setOpen(!open)}>
+        <ButtonItem layout="below" onClick={onToggle}>
           <RowLabel title="Login" detail={status?.has_password ? "Password saved" : "Not saved"} open={open} />
         </ButtonItem>
       </PanelSectionRow>
