@@ -77,6 +77,25 @@ class Updater:
     def list_games(self, rescan: bool = False) -> list[dict]:
         return [g.to_dict() for g in self.games(rescan)]
 
+    def play_info(self, game_id: str) -> dict:
+        """What the panel needs to make and start a Steam shortcut for this game."""
+        game = self._game(game_id)
+        if not game.exe:
+            raise github.GitHubError("This game can't be started from here. Its Wow.exe wasn't found in a Steam prefix.")
+        return {
+            "name": f"World of Warcraft {game.label}",
+            "exe": game.exe,
+            "start_dir": game.path,
+            "prefix": game.prefix,
+            "prefix_appid": game.prefix_appid,
+            "shortcut": self.store.shortcut(game_id),
+        }
+
+    def save_shortcut(self, game_id: str, appid: int) -> bool:
+        self._game(game_id)
+        self.store.set_shortcut(game_id, int(appid))
+        return True
+
     def _rows(self, game: discover.Game) -> list[toc.Row]:
         addons = toc.read_addons(Path(game.addons_path), game.flavor)
         return toc.build_rows(addons, self.store.links(game.id), self.catalog)

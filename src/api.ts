@@ -10,6 +10,15 @@ export interface Game {
   version: string;
 }
 
+export interface PlayInfo {
+  name: string;
+  exe: string;
+  start_dir: string;
+  prefix: string;
+  prefix_appid: number;
+  shortcut: number;
+}
+
 export interface AddonRow {
   key: string;
   title: string;
@@ -57,6 +66,8 @@ export const updateAddon = callable<[gameId: string, key: string], Reply<{ title
 export const addAddon = callable<[gameId: string, text: string], Reply<{ title: string; version: string }>>("add_addon");
 export const defaultAddons = callable<[gameId: string], Reply<DefaultAddon[]>>("default_addons");
 export const dismissDefaultAddon = callable<[gameId: string, folder: string], Reply<boolean>>("dismiss_default_addon");
+export const playInfo = callable<[gameId: string], Reply<PlayInfo>>("play_info");
+export const saveShortcut = callable<[gameId: string, appid: number], Reply<boolean>>("save_shortcut");
 export const checkPlugin = callable<[], Reply<PluginInfo>>("check_plugin");
 export const installPluginUpdate = callable<[], Reply<{ version: string }>>("install_plugin_update");
 

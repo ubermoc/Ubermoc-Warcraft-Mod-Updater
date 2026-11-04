@@ -18,6 +18,7 @@ import {
   listGames,
 } from "./api";
 import { DefaultAddonPrompt } from "./DefaultAddonPrompt";
+import { playGame } from "./play";
 import { PluginUpdate } from "./PluginUpdate";
 import { Message, RepoEditor } from "./RepoEditor";
 
@@ -25,6 +26,33 @@ const ADD_ROW = "\0add";
 
 function shortVersion(version: string) {
   return version.split(".").slice(0, 3).join(".");
+}
+
+function PlayButton(props: { gameId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const play = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      setError(await playGame(props.gameId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    setTimeout(() => setBusy(false), 4000); // Steam takes a moment to start; don't launch twice
+  };
+
+  return (
+    <>
+      {error && <Message text={error} />}
+      <PanelSectionRow>
+        <ButtonItem layout="below" disabled={busy} onClick={play}>
+          {busy ? "Starting..." : "Play"}
+        </ButtonItem>
+      </PanelSectionRow>
+    </>
+  );
 }
 
 function Content() {
@@ -119,6 +147,7 @@ function Content() {
             {openGame === game.id && (
               <>
                 {listError && <Message text={listError} />}
+                <PlayButton gameId={game.id} />
                 {suggested.map((addon) => (
                   <DefaultAddonPrompt key={addon.folder} addon={addon} onInstall={add(game.id)} onDismiss={() => dismiss(game.id, addon.folder)} />
                 ))}

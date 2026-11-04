@@ -483,6 +483,33 @@ class Service(Base):
         with self.lookup():
             self.assertEqual(self.up.check_addons("g1", True)["Foo"]["state"], "current")
 
+    def test_play_info_points_at_the_prefix_the_game_lives_in(self):
+        self.game.exe = "/steam/compatdata/42/pfx/drive_c/WoW/_retail_/Wow.exe"
+        self.game.prefix, self.game.prefix_appid = "/steam/compatdata/42", 42
+        info = self.up.play_info("g1")
+        self.assertEqual((info["exe"], info["prefix"], info["prefix_appid"], info["shortcut"]), (self.game.exe, "/steam/compatdata/42", 42, 0))
+        self.up.save_shortcut("g1", 123)
+        self.assertEqual(self.up.play_info("g1")["shortcut"], 123)
+        self.assertEqual(Updater(str(self.tmp), str(self.tmp / "settings"), str(self.tmp / "runtime"), str(self.plugin)).store.shortcut("g1"), 123)
+
+    def test_play_needs_a_wow_exe_in_a_steam_prefix(self):
+        self.game.exe = ""
+        with self.assertRaises(github.GitHubError):
+            self.up.play_info("g1")
+
+    def test_games_remember_their_prefix_and_exe(self):
+        root = self.tmp / "compatdata/777/pfx/drive_c/Program Files (x86)/World of Warcraft"
+        game_dir = root / "_retail_"
+        game_dir.mkdir(parents=True)
+        (root / ".build.info").write_text("Branch!STRING:0|Product!STRING:0|Version!STRING:0\nus|wow|12.1.5.70688\n")
+        (game_dir / ".flavor.info").write_text("Product Flavor!STRING:0\nwow\n")
+        (game_dir / "Wow.exe").write_text("")
+        game = discover.games_in_root(root)[0]
+        self.assertEqual((game.prefix, game.prefix_appid), (str(self.tmp / "compatdata/777"), 777))
+        self.assertEqual(game.exe, str(game_dir / "Wow.exe"))
+        (game_dir / "Wow.exe").unlink()
+        self.assertEqual(discover.games_in_root(root)[0].exe, "")
+
     def test_plugin_zip_checks(self):
         self.up._check_plugin_zip(self.plugin_zip(self.tmp / "ok.zip"))
         for bad in (self.plugin_zip(self.tmp / "b1.zip", name="Other"), self.plugin_zip(self.tmp / "b2.zip", skip=("index.js",))):

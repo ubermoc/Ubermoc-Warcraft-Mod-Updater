@@ -45,6 +45,12 @@ class Plugin:
     async def list_addons(self, game_id: str) -> dict:
         return await self._run(self.updater.list_addons, game_id)
 
+    async def play_info(self, game_id: str) -> dict:
+        return await self._run(self.updater.play_info, game_id)
+
+    async def save_shortcut(self, game_id: str, appid: int) -> dict:
+        return await self._run(self.updater.save_shortcut, game_id, appid)
+
     async def default_addons(self, game_id: str) -> dict:
         return await self._run(self.updater.default_addons, game_id)
 

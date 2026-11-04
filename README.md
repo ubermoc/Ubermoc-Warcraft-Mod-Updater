@@ -18,6 +18,7 @@ Together: the Updater keeps the addon current, Ubermoc UI lets you play, and Ube
 
 ## Use
 
+- Play starts the game directly, without the Battle.net launcher. It makes a Steam shortcut called World of Warcraft Midnight (or Forever) that uses the same Proton and game files as your Battle.net install. Battle.net is not needed once the game is installed.
 - Open a game to see its addons. Only one game and one addon stay open at a time.
 - An addon that isn't linked can be linked by opening it, entering `owner/repo` or a GitHub link, and pressing Check. Save once the result looks right.
 - Midnight and Forever offer to install Ubermoc UI if it isn't installed. Not now is remembered for that game.

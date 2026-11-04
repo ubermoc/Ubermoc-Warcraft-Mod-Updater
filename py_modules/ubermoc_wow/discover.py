@@ -28,6 +28,7 @@ _PRODUCT_DB = "drive_c/ProgramData/Battle.net/Agent/product.db"
 _LIBRARY_PATH = re.compile(r'"path"\s+"([^"]+)"')
 _GAME_DIR = re.compile(r"^_[a-z0-9_]+_$")
 _WINDOWS_PATH = re.compile(rb"[A-Za-z]:/")
+_PREFIX = re.compile(r"^(.*/compatdata/(\d+))/pfx/")
 
 # Classic clients by major.minor, from Blizzard's version numbers.
 _CLASSIC_LABELS = {
@@ -61,6 +62,9 @@ class Game:
     flavor: str  # the BigWigs packager's name, e.g. mainline
     path: str
     addons_path: str
+    exe: str = ""  # the game's own Wow.exe, if it can be started without Battle.net
+    prefix: str = ""  # the Proton prefix it lives in, e.g. .../compatdata/3928805520
+    prefix_appid: int = 0  # the Steam app that owns that prefix
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -250,6 +254,8 @@ def games_in_root(root: Path) -> list[Game]:
         version = versions.get(product, "")
         interface = version_to_interface(version)
         real = os.path.realpath(entry)
+        exe = entry / "Wow.exe"
+        in_prefix = _PREFIX.match(str(entry))
         games.append(
             Game(
                 id=hashlib.sha1(real.encode()).hexdigest()[:12],
@@ -261,6 +267,9 @@ def games_in_root(root: Path) -> list[Game]:
                 flavor=flavor_for(product, interface),
                 path=str(entry),
                 addons_path=str(entry / "Interface" / "AddOns"),
+                exe=str(exe) if in_prefix and exe.is_file() else "",
+                prefix=in_prefix.group(1) if in_prefix else "",
+                prefix_appid=int(in_prefix.group(2)) if in_prefix else 0,
             )
         )
     return games

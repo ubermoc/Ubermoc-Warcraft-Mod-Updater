@@ -65,6 +65,18 @@ class Store:
             data["games"].setdefault(game_id, {})[key] = link
             self._save(data)
 
+    def shortcut(self, game_id: str) -> int:
+        """The Steam shortcut made to play this game, or 0."""
+        with self._lock:
+            value = self._load().get("shortcuts", {}).get(game_id, 0)
+            return value if isinstance(value, int) else 0
+
+    def set_shortcut(self, game_id: str, appid: int) -> None:
+        with self._lock:
+            data = self._load()
+            data.setdefault("shortcuts", {})[game_id] = appid
+            self._save(data)
+
     def is_dismissed(self, game_id: str) -> bool:
         with self._lock:
             return game_id in self._load().get("dismissed", [])
