@@ -31,7 +31,15 @@ START_TIMEOUT_S = 90.0   # waiting for the game to start
 READY_TIMEOUT_S = 45.0   # after it starts, the longest wait for either sign of a ready login screen
 DRAWN_BRIGHTNESS = 2.0   # average 0-255 of the window; black reads ~0.2, the login screen ~77
 POLL_S = 0.05
-SETTLE_S = 10.0          # after the game's startup log appears, a fixed wait for the login screen
+# After the game's startup log appears the login screen still needs a moment. How long depends on how
+# fast the device is, so it is measured: SETTLE_FACTOR times how long the game itself took to get to that
+# log (on a fast desktop: ~2.6s to the log, login screen ~1.6s later), never less than SETTLE_MIN_S and
+# never more than SETTLE_MAX_S. The person can scale the result with the "Login timing" setting;
+# "instant" skips the wait and types the moment the startup log appears.
+SETTLE_FACTOR = 1.0
+SETTLE_MIN_S = 1.5
+SETTLE_MAX_S = 20.0
+SPEEDS = {"instant": 0.0, "fastest": 0.25, "faster": 0.5, "normal": 1.0, "slower": 2.0, "slowest": 3.0}
 KEY_HOLD_S = 0.01        # how long each typed key is held down, and the gap after it
 MOD_LEAD_S = 0.015       # Shift goes down this long before the key it changes
 ENTER_HOLD_S = 0.06      # Enter is held longer: a key held only a few ms is missed by games that read input once per frame
@@ -248,7 +256,9 @@ class AutoLogin:
         clock: Callable[[], float] = time.time,
         drawn: Callable[[list[int]], bool | None] | None = None,
         logger=None,
+        speed: Callable[[], str] = lambda: "normal",
     ):
+        self._speed = speed
         self._drawn = drawn
         self._log = logger or log
         self._read_password = read_password
@@ -290,17 +300,23 @@ class AutoLogin:
         thread.start()
         return {"started": True}
 
-    def _wait_until_ready(self, folder: str, game_path: str, started_at: float) -> str:
+    def _settle_for(self, startup_s: float) -> float:
+        """How long to wait after the startup log, for a device whose game took `startup_s` to get there."""
+        factor = SPEEDS.get(self._speed(), 1.0)
+        return min(SETTLE_MAX_S, max(SETTLE_MIN_S, startup_s * SETTLE_FACTOR) * factor)
+
+    def _wait_until_ready(self, folder: str, game_path: str, started_at: float, first_seen: float) -> str:
         """Wait for the login screen. Two signs are watched at once and the first one wins:
-        the game's window has drawn something, or its startup log appeared SETTLE_S ago.
-        (Where the window can't be read, such as under Gamescope, only the log counts.)
-        Returns "window", "log", "closed" or "timeout"."""
+        the game's window has drawn something, or its startup log appeared and a wait scaled to this
+        device's speed has passed. (Where the window can't be read, such as under Gamescope, only the
+        log counts.) Returns "window", "log", "closed" or "timeout"."""
         look = self._drawn or ScreenCue()
         began = self._clock()
         window_ok = True
         log_seen_at = None
+        settle = 0.0
         window_state = "black"
-        while self._clock() - began < READY_TIMEOUT_S + SETTLE_S:
+        while self._clock() - began < READY_TIMEOUT_S + SETTLE_MAX_S:
             pids = self._pids(folder)
             if not pids:
                 return "closed"
@@ -313,9 +329,15 @@ class AutoLogin:
                     return "window"
             if log_seen_at is None and self._ready(game_path, started_at):
                 log_seen_at = self._clock()
-            if log_seen_at is not None and self._clock() - log_seen_at >= SETTLE_S:
+                settle = self._settle_for(log_seen_at - first_seen)
                 self._log.info(
-                    "auto login: ready by startup log after %.1fs (window check: %s)", self._clock() - began, window_state
+                    "auto login: startup log after %.1fs; waiting %.1fs more (timing: %s, window check: %s)",
+                    log_seen_at - first_seen, settle, self._speed(), window_state,
+                )
+            if log_seen_at is not None and self._clock() - log_seen_at >= settle:
+                self._log.info(
+                    "auto login: ready by startup log, %.1fs after the game started (window check: %s)",
+                    self._clock() - first_seen, window_state,
                 )
                 return "log"
             self._sleep(POLL_S if window_ok else 0.25)
@@ -334,8 +356,9 @@ class AutoLogin:
                     self._set(game_id, "failed", "The game didn't open. Press Play to try again.")
                     return
                 self._sleep(0.2)
-            self._log.info("auto login: game started %.1fs after Play", self._clock() - started_at)
-            how = self._wait_until_ready(folder, game_path, started_at)
+            first_seen = self._clock()
+            self._log.info("auto login: game started %.1fs after Play", first_seen - started_at)
+            how = self._wait_until_ready(folder, game_path, started_at, first_seen)
             if how == "closed":
                 self._set(game_id, "failed", "The game closed too soon to log in. Press Play to try again.")
                 return

@@ -570,7 +570,7 @@ class Service(Base):
         with self.assertRaises(login.LoginError):
             vault.status()
 
-    def run_autologin(self, password="Pa55 w0rd!", running_before=False, starts_at=2.0, closes_before_typing=False, drawn_at=None):
+    def run_autologin(self, password="Pa55 w0rd!", running_before=False, starts_at=2.0, closes_before_typing=False, drawn_at=None, log_after=1.0, speed="normal"):
         clock = {"t": 0.0}
         typed = []
         self.typed_at = None
@@ -592,7 +592,7 @@ class Service(Base):
         def pids(folder):
             if running_before and not clock["t"]:
                 return [7]
-            if closes_before_typing and clock["t"] > starts_at + autologin.SETTLE_S - 1:
+            if closes_before_typing and clock["t"] > starts_at + log_after + 0.5:
                 return []
             return [7] if clock["t"] >= starts_at else []
 
@@ -602,7 +602,7 @@ class Service(Base):
         keys = Keys()
         # drawn_at=None: the screen can't be watched here, so the timed fallback is used.
         drawn = lambda found: None if drawn_at is None else clock["t"] >= drawn_at  # noqa: E731
-        al = autologin.AutoLogin(lambda: password, lambda: keys, pids, lambda path, since: clock["t"] > starts_at + 1, sleep, lambda: clock["t"], drawn)
+        al = autologin.AutoLogin(lambda: password, lambda: keys, pids, lambda path, since: clock["t"] > starts_at + log_after, sleep, lambda: clock["t"], drawn, None, lambda: speed)
         first = al.begin("g1", "_retail_", "/x")
         self.keys = keys
         for _ in range(200):
@@ -616,10 +616,10 @@ class Service(Base):
         self.assertTrue(first["started"])
         self.assertEqual(state["state"], "done")
         self.assertEqual(typed, [("open",), ("text", "Pa55 w0rd!"), ("enter",), ("close",)])
-        self.assertGreaterEqual(self.keys.typed_at, autologin.SETTLE_S)  # no way to see the screen: waits the fixed time
+        self.assertGreaterEqual(self.keys.typed_at, 2.0 + autologin.SETTLE_MIN_S)  # no way to see the screen: waits for the log, then a measured time
 
     def test_autologin_types_the_moment_the_game_has_drawn_its_window(self):
-        first, state, typed = self.run_autologin(drawn_at=5.0)
+        first, state, typed = self.run_autologin(drawn_at=5.0, log_after=30.0)  # the log is far off: the window wins
         self.assertEqual(state["state"], "done")
         self.assertEqual(typed, [("open",), ("text", "Pa55 w0rd!"), ("enter",), ("close",)])
         self.assertGreaterEqual(self.keys.typed_at, 5.0)
@@ -629,8 +629,38 @@ class Service(Base):
         # Under Gamescope the window may read as black for good: the startup log plus a fixed wait still gets there.
         _, state, typed = self.run_autologin(drawn_at=10_000.0)
         self.assertEqual(state["state"], "done")
-        self.assertGreaterEqual(self.keys.typed_at, autologin.SETTLE_S)
-        self.assertLess(self.keys.typed_at, autologin.SETTLE_S + 5)
+        self.assertGreaterEqual(self.keys.typed_at, 2.0 + autologin.SETTLE_MIN_S)
+        self.assertLess(self.keys.typed_at, 8.0)  # a fast device: nowhere near the old fixed 10 seconds
+
+    def test_a_slower_device_waits_longer_in_proportion(self):
+        _, state, _ = self.run_autologin(drawn_at=10_000.0, log_after=9.0)  # the game took 9s to reach its log
+        self.assertEqual(state["state"], "done")
+        self.assertGreaterEqual(self.keys.typed_at, 2.0 + 9.0 + 9.0 - 0.5)  # log, then about as long again
+        self.assertLessEqual(self.keys.typed_at, 2.0 + 9.0 + 9.0 + 2.0)
+
+    def test_the_login_timing_setting_scales_the_wait(self):
+        waits = {}
+        for speed in ("instant", "fastest", "faster", "normal", "slower", "slowest"):
+            self.run_autologin(drawn_at=10_000.0, log_after=4.0, speed=speed)
+            waits[speed] = self.keys.typed_at
+        ordered = [waits[k] for k in ("instant", "fastest", "faster", "normal", "slower", "slowest")]
+        self.assertEqual(ordered, sorted(ordered))
+        self.assertEqual(len(set(ordered)), 6)
+        self.assertLess(waits["instant"], 2.0 + 4.0 + 0.5)  # types as the startup log appears, no extra wait
+
+    def test_the_wait_is_capped(self):
+        self.run_autologin(drawn_at=10_000.0, log_after=40.0)
+        self.assertLessEqual(self.keys.typed_at, 2.0 + 40.0 + autologin.SETTLE_MAX_S + 2.0)
+
+    def test_login_timing_is_saved_and_checked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            updater = Updater(tmp, str(Path(tmp) / "settings"), str(Path(tmp) / "run"), str(Path(tmp) / "plugin"))
+            self.assertEqual(updater.login_speed(), {"speed": "normal"})
+            self.assertEqual(updater.set_login_speed("instant"), {"speed": "instant"})
+            self.assertEqual(updater.login_speed(), {"speed": "instant"})
+            with self.assertRaises(github.GitHubError):
+                updater.set_login_speed("warp")
+            self.assertEqual(updater.login_speed(), {"speed": "instant"})
 
     def test_autologin_gives_up_clearly_when_it_can_never_tell(self):
         clock = {"t": 0.0}

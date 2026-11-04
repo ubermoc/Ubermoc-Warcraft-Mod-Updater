@@ -65,6 +65,18 @@ class Store:
             data["games"].setdefault(game_id, {})[key] = link
             self._save(data)
 
+    def login_speed(self) -> str:
+        """The person's "Login timing" choice: instant, fastest, faster, normal, slower or slowest."""
+        with self._lock:
+            value = self._load().get("login_speed", "normal")
+            return value if value in ("instant", "fastest", "faster", "normal", "slower", "slowest") else "normal"
+
+    def set_login_speed(self, speed: str) -> None:
+        with self._lock:
+            data = self._load()
+            data["login_speed"] = speed
+            self._save(data)
+
     def shortcut(self, game_id: str) -> int:
         """The Steam shortcut made to play this game, or 0."""
         with self._lock:

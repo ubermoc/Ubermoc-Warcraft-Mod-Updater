@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import discover, github, installer, toc
+from . import autologin
 from .autologin import AutoLogin
 from .login import LoginVault
 from .store import Store
@@ -50,7 +51,7 @@ class Updater:
         self.plugin_dir = Path(plugin_dir)
         self.store = Store(settings_dir)
         self.login = LoginVault(settings_dir)
-        self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""), logger=logger)
+        self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""), logger=logger, speed=lambda: self.store.login_speed())
         self.catalog = self._load_catalog()
         self._games: list[discover.Game] | None = None
         self._releases: dict[tuple[str, str], tuple[float, object]] = {}
@@ -89,6 +90,15 @@ class Updater:
 
     def remove_login(self) -> dict:
         return self.login.remove()
+
+    def login_speed(self) -> dict:
+        return {"speed": self.store.login_speed()}
+
+    def set_login_speed(self, speed: str) -> dict:
+        if speed not in autologin.SPEEDS:
+            raise github.GitHubError("Pick one of the Login timing options.")
+        self.store.set_login_speed(speed)
+        return {"speed": speed}
 
     def start_login(self, game_id: str) -> dict:
         """Call just before starting a game: types the saved password into its login screen."""
