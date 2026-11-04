@@ -65,6 +65,17 @@ def check_zip(zip_path: str | Path) -> list[str]:
     return sorted(tocs)
 
 
+def _hand_back(tree: Path, like: Path) -> None:
+    """Give a folder just written as root to whoever owns the game, so Wine and the user can change it."""
+    if os.geteuid() != 0:
+        return
+    owner = like.stat()
+    os.chown(tree, owner.st_uid, owner.st_gid)
+    for dirpath, dirs, files in os.walk(tree):
+        for name in dirs + files:
+            os.lchown(os.path.join(dirpath, name), owner.st_uid, owner.st_gid)
+
+
 def _existing(addons_dir: Path, folder: str) -> Path | None:
     """The installed folder of this name, whatever its case. Proton ignores case."""
     wanted = folder.lower()
@@ -101,6 +112,7 @@ def install_zip(zip_path: str | Path, addons_dir: str | Path, stale: list[str] |
                 moved.append((backup, current))
         for folder in folders:
             target = addons / folder
+            _hand_back(unpacked / folder, addons)
             os.replace(unpacked / folder, target)
             placed.append(target)
     except Exception as e:

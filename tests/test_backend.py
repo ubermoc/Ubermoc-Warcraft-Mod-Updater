@@ -510,6 +510,17 @@ class Service(Base):
         (game_dir / "Wow.exe").unlink()
         self.assertEqual(discover.games_in_root(root)[0].exe, "")
 
+    def test_root_plugin_hands_addon_files_back_to_the_game_owner(self):
+        calls = []
+        folder = self.tmp / "tree"
+        (folder / "sub").mkdir(parents=True)
+        (folder / "sub/a.lua").write_text("")
+        with mock.patch.object(installer.os, "geteuid", return_value=0), mock.patch.object(installer.os, "chown", lambda p, u, g: calls.append(("d", str(p)))), mock.patch.object(installer.os, "lchown", lambda p, u, g: calls.append(("f", str(p)))):
+            installer._hand_back(folder, self.tmp)
+        self.assertEqual({p for _, p in calls}, {str(folder), str(folder / "sub"), str(folder / "sub/a.lua")})
+        with mock.patch.object(installer.os, "geteuid", return_value=1000), mock.patch.object(installer.os, "chown", side_effect=AssertionError):
+            installer._hand_back(folder, self.tmp)
+
     def test_plugin_zip_checks(self):
         self.up._check_plugin_zip(self.plugin_zip(self.tmp / "ok.zip"))
         for bad in (self.plugin_zip(self.tmp / "b1.zip", name="Other"), self.plugin_zip(self.tmp / "b2.zip", skip=("index.js",))):
