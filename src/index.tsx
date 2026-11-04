@@ -18,6 +18,7 @@ import {
   listGames,
 } from "./api";
 import { DefaultAddonPrompt } from "./DefaultAddonPrompt";
+import { LoginSection } from "./LoginSection";
 import { playGame } from "./play";
 import { PluginUpdate } from "./PluginUpdate";
 import { Message, RepoEditor } from "./RepoEditor";
@@ -133,6 +134,9 @@ function Content() {
 
   return (
     <>
+      <PanelSection>
+        <LoginSection />
+      </PanelSection>
       <PanelSection title="World of Warcraft">
         {games === null && <Message text="Looking for World of Warcraft..." />}
         {gameError && <Message text={gameError} />}

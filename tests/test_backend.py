@@ -12,7 +12,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "py_modules"))
 
-from ubermoc_wow import discover, github, installer, toc  # noqa: E402
+from ubermoc_wow import discover, github, installer, login, toc  # noqa: E402
 from ubermoc_wow.service import PLUGIN_NAME, Updater  # noqa: E402
 
 BUILD_INFO = (
@@ -520,6 +520,48 @@ class Service(Base):
         self.assertEqual({p for _, p in calls}, {str(folder), str(folder / "sub"), str(folder / "sub/a.lua")})
         with mock.patch.object(installer.os, "geteuid", return_value=1000), mock.patch.object(installer.os, "chown", side_effect=AssertionError):
             installer._hand_back(folder, self.tmp)
+
+    def vault(self, encrypting=True):
+        def run(args, data):
+            if not encrypting:
+                raise OSError("no systemd-creds")
+            return data[::-1] if args[0] == "encrypt" else data[::-1]
+
+        return login.LoginVault(self.tmp / "vault", run)
+
+    def test_login_is_encrypted_and_never_shown_back(self):
+        vault = self.vault()
+        status = vault.save("me@example.com", "s3cret")
+        self.assertEqual(status, {"email": "me@example.com", "has_password": True, "encrypted": True})
+        self.assertNotIn("s3cret", str(status))
+        self.assertNotIn(b"s3cret", vault.path.read_bytes())
+        self.assertEqual(stat.S_IMODE(vault.path.stat().st_mode), 0o600)
+        self.assertEqual(vault.read(), {"email": "me@example.com", "password": "s3cret"})
+
+    def test_login_falls_back_to_a_root_only_file(self):
+        vault = self.vault(encrypting=False)
+        self.assertFalse(vault.save("me@example.com", "pw")["encrypted"])
+        self.assertEqual(stat.S_IMODE(vault.path.stat().st_mode), 0o600)
+        self.assertEqual(vault.read()["password"], "pw")
+
+    def test_empty_password_keeps_the_saved_one_and_remove_clears_it(self):
+        vault = self.vault()
+        vault.save("me@example.com", "pw")
+        self.assertTrue(vault.save("new@example.com", "")["has_password"])
+        self.assertEqual(vault.read(), {"email": "new@example.com", "password": "pw"})
+        self.assertEqual(vault.remove(), {"email": "", "has_password": False, "encrypted": True})
+        self.assertFalse(vault.path.exists())
+        self.assertFalse(self.vault().save("only@example.com", "")["has_password"])
+
+    def test_login_checks_what_it_is_given(self):
+        vault = self.vault()
+        for email, password in (("", "x"), ("a@b.c", "x\ny"), ("a@b.c", "x" * 300)):
+            with self.assertRaises(login.LoginError):
+                vault.save(email, password)
+        vault.path.parent.mkdir(parents=True, exist_ok=True)
+        vault.path.write_text("{broken")
+        with self.assertRaises(login.LoginError):
+            vault.status()
 
     def test_plugin_zip_checks(self):
         self.up._check_plugin_zip(self.plugin_zip(self.tmp / "ok.zip"))

@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import discover, github, installer, toc
+from .login import LoginVault
 from .store import Store
 
 PLUGIN_NAME = "Ubermoc Warcraft Mod Updater"
@@ -47,6 +48,7 @@ class Updater:
         self.runtime_dir = Path(runtime_dir)
         self.plugin_dir = Path(plugin_dir)
         self.store = Store(settings_dir)
+        self.login = LoginVault(settings_dir)
         self.catalog = self._load_catalog()
         self._games: list[discover.Game] | None = None
         self._releases: dict[tuple[str, str], tuple[float, object]] = {}
@@ -76,6 +78,15 @@ class Updater:
 
     def list_games(self, rescan: bool = False) -> list[dict]:
         return [g.to_dict() for g in self.games(rescan)]
+
+    def login_status(self) -> dict:
+        return self.login.status()
+
+    def save_login(self, email: str, password: str) -> dict:
+        return self.login.save(email, password)
+
+    def remove_login(self) -> dict:
+        return self.login.remove()
 
     def play_info(self, game_id: str) -> dict:
         """What the panel needs to make and start a Steam shortcut for this game."""

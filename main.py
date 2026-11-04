@@ -6,10 +6,10 @@ from typing import Any, Callable
 
 import decky
 
-from ubermoc_wow import github, installer  # noqa: E402
+from ubermoc_wow import github, installer, login  # noqa: E402
 from ubermoc_wow.service import Updater  # noqa: E402
 
-EXPECTED_ERRORS = (github.GitHubError, installer.InstallError)
+EXPECTED_ERRORS = (github.GitHubError, installer.InstallError, login.LoginError)
 
 
 class Plugin:
@@ -44,6 +44,15 @@ class Plugin:
 
     async def list_addons(self, game_id: str) -> dict:
         return await self._run(self.updater.list_addons, game_id)
+
+    async def login_status(self) -> dict:
+        return await self._run(self.updater.login_status)
+
+    async def save_login(self, email: str, password: str) -> dict:
+        return await self._run(self.updater.save_login, email, password)
+
+    async def remove_login(self) -> dict:
+        return await self._run(self.updater.remove_login)
 
     async def play_info(self, game_id: str) -> dict:
         return await self._run(self.updater.play_info, game_id)
