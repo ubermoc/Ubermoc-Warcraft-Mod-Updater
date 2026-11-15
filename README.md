@@ -3,12 +3,13 @@
 A [Decky Loader](https://decky.xyz/) plugin that finds World of Warcraft in your Steam Proton prefixes, lists each game by name (Midnight, Forever, Classic), and updates its addons from GitHub releases in Gaming Mode.
 
 ## Works together
-Three projects made to be used together, so you can play World of Warcraft from the couch with only a controller:
+Four projects made to be used together, so you can play World of Warcraft from the couch with only a controller:
 
 - **[Ubermoc UI](https://github.com/ubermoc/Ubermoc-UI)** ([CurseForge](https://www.curseforge.com/wow/addons/ubermoc-ui)): the addon. It makes the game playable without a mouse or keyboard.
+- **[Ubermoc Forever](https://github.com/ubermoc/Ubermoc-Forever)** ([CurseForge](https://www.curseforge.com/wow/addons/ubermoc-forever)): a default UI for World of Warcraft: Forever that works 100% with a controller, designed for the Steam Deck and Steam Controller.
 - **[Ubermoc Speech](https://github.com/ubermoc/Ubermoc-Speech)**: a Decky plugin for typing. Hold a button, speak, and your words are typed into chat or anything else with focus.
 
-Together: the Updater keeps the addon current, Ubermoc UI lets you play, and Ubermoc Speech does the typing.
+Together: the Updater keeps the addons current, Ubermoc UI and Ubermoc Forever let you play, and Ubermoc Speech does the typing.
 
 ## Install
 
