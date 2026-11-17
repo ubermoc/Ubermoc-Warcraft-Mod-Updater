@@ -1,6 +1,6 @@
 # Ubermoc Warcraft Mod Updater
 
-A [Decky Loader](https://decky.xyz/) plugin that finds World of Warcraft in your Steam Proton prefixes, lists each game by name (Midnight, Forever, Classic), and updates its addons from GitHub releases in Gaming Mode.
+A [Decky Loader](https://decky.xyz/) plugin that finds World of Warcraft in your Steam Proton prefixes, lists each game by name (Midnight, Forever, Classic), and updates its addons from GitHub releases (and CurseForge) in Gaming Mode.
 
 ## Works together
 Four projects made to be used together, so you can play World of Warcraft from the couch with only a controller:
@@ -22,15 +22,19 @@ Together: the Updater keeps the addons current, Ubermoc UI and Ubermoc Forever l
 - Login, at the top, saves your Battle.net password for both games. The game remembers your account name itself. With a password saved, Play types it and presses Enter once the login screen is ready. Where it can see the game's window (desktop mode) it types as soon as the window draws. In Game Mode the window can't be read, so it waits for the game's startup log and then a time scaled to how fast your device started the game. The Login wait slider scales that time: 1 is the safe default, lower is faster (0.4 worked on a fast desktop), and if your password is typed too early, raise it. It only does this for a game it started itself, never one that was already running, and it tries once. Each Play is a real login, so repeated rapid tests can make Blizzard ask for extra checks. Only letters, numbers and the symbols on a US keyboard can be typed. The password is encrypted with a key kept on the device (and tied to its TPM where there is one), or kept in a file only an administrator can read if the device can't encrypt. It's never shown again, and your authenticator code is never saved. What the login step did is written to the plugin's log.
 - Play starts the game directly, without the Battle.net launcher. It makes a Steam shortcut called World of Warcraft Midnight (or Forever) that uses the same game files as your Battle.net install, with the Proton version that built that prefix (read from the prefix itself; if that can't be told it uses the one your Battle.net shortcut is set to). Battle.net is not needed once the game is installed. If something stops Play, it says in plain words what to do. What the login step did is written to the plugin's log.
 - Open a game to see its addons. Only one game and one addon stay open at a time.
-- An addon that isn't linked can be linked by opening it, entering `owner/repo` or a GitHub link, and pressing Check. Save once the result looks right.
+- An addon that isn't linked can be linked by opening it, entering where it comes from, and pressing Check. Save once the result looks right. Where it comes from can be:
+  - `owner/repo` or a GitHub link: the repo's newest release.
+  - `owner/repo@start`: the newest release whose tag starts with `start/`, for repos that publish several things in one releases list. Spoken is `rusty-key/spoken-wow@spoken`, its quest voices `rusty-key/spoken-wow@quests-audio`.
+  - `curseforge:` and the Project ID from the addon's CurseForge page (for example `curseforge:1801478`): the newest release file for that game, read from curseforge.com.
+- Some addons are known already and show as linked without doing anything: OpenXP, Spoken and its English voice packs, Forever Graphics Enhancer, and the others in `catalog.json`. Folders that come from one download, such as Spoken and its modules, show as one row.
 - Midnight and Forever offer to install Ubermoc UI if it isn't installed. Not now is remembered for that game.
-- Add addon from GitHub installs a new addon the same way.
+- Add addon installs a new addon the same way.
 - Edit changes a saved repo. Remove forgets the link and leaves the addon installed.
 - The update button at the bottom updates the plugin in place and reloads it, the same way Ubermoc Speech does, so Decky and SteamOS don't need restarting.
 
 ## What it can update
 
-An addon needs a GitHub release with a packaged `.zip`, ideally built with the [BigWigs packager](https://github.com/BigWigsMods/packager). Repos with no releases, or with source code only, can't be installed.
+An addon needs a GitHub release with a packaged `.zip`, ideally built with the [BigWigs packager](https://github.com/BigWigsMods/packager), or a release file on CurseForge. Repos with no releases, or with source code only, can't be installed. Downloads can be up to 3 GB, so large voice packs install too; they take a while.
 
 Only Steam and Proton installs are found. Lutris, Heroic and Bottles aren't scanned.
 

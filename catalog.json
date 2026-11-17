@@ -6,5 +6,20 @@
   "Plater": "Tercioo/Plater-Nameplates",
   "Cell": "enderneko/Cell",
   "UbermocUI": "ubermoc/Ubermoc-UI",
-  "UbermocForever": "ubermoc/Ubermoc-Forever"
+  "UbermocForever": "ubermoc/Ubermoc-Forever",
+  "OpenXP": "mjared123/OpenXP",
+  "ForeverGraphicsEnhanced": "curseforge:1801478",
+  "Spoken": "rusty-key/spoken-wow@spoken",
+  "Spoken_Quests": "rusty-key/spoken-wow@spoken",
+  "Spoken_Places": "rusty-key/spoken-wow@spoken",
+  "Spoken_Readables": "rusty-key/spoken-wow@spoken",
+  "Spoken_Bosses": "rusty-key/spoken-wow@spoken",
+  "SpokenContributions": "rusty-key/spoken-wow@spoken",
+  "SpokenQuestsAudioShared": "rusty-key/spoken-wow@quests-audio",
+  "SpokenQuestsAudioAlliance": "rusty-key/spoken-wow@quests-audio",
+  "SpokenQuestsAudioHorde": "rusty-key/spoken-wow@quests-audio",
+  "SpokenQuestsAudioGossip": "rusty-key/spoken-wow@quests-audio",
+  "SpokenReadablesAudio": "rusty-key/spoken-wow@readables-audio",
+  "SpokenPlacesAudio": "rusty-key/spoken-wow@places-audio",
+  "SpokenBossesAudio": "rusty-key/spoken-wow@bosses-audio"
 }

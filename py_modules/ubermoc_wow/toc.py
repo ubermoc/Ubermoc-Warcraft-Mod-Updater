@@ -179,9 +179,13 @@ def build_rows(addons: list[Addon], links: dict[str, dict], catalog: dict[str, s
     for addon in addons:
         if addon.folder.lower() in used:
             continue
-        shared = next((i for i in addon.ids if i in groups), None)
+        # Folders the catalog gives the same source come from one download (Spoken and its modules): one row.
+        keys = list(addon.ids)
+        if addon.folder.lower() in catalog and not addon.repo:
+            keys.append(f"catalog={catalog[addon.folder.lower()].lower()}")
+        shared = next((i for i in keys if i in groups), None)
         if shared is None:
-            shared = addon.ids[0] if addon.ids else f"folder={addon.folder}"
+            shared = keys[0] if keys else f"folder={addon.folder}"
             groups[shared] = []
         groups[shared].append(addon)
     rows.extend(_detected_row(group, catalog) for group in groups.values())

@@ -50,8 +50,8 @@ export function RepoEditor(props: {
     <>
       <PanelSectionRow>
         <TextField
-          label="GitHub repo"
-          description="owner/repo or a GitHub link"
+          label="Where it comes from"
+          description="owner/repo, a GitHub link, owner/repo@tag-start, or curseforge: and the Project ID"
           value={text}
           disabled={busy}
           onChange={(e) => {
@@ -62,7 +62,7 @@ export function RepoEditor(props: {
         />
       </PanelSectionRow>
       {error && <Message text={error} />}
-      {found && <Message text={`GitHub has: ${found.name} ${found.version}\nIs this the right addon?`} />}
+      {found && <Message text={`Found: ${found.name} ${found.version}\nIs this the right addon?`} />}
       <PanelSectionRow>
         {found ? (
           <ButtonItem layout="below" disabled={busy} onClick={save}>

@@ -175,6 +175,16 @@ class Toc(Base):
         self.assertEqual(len(rows), 1)
         self.assertEqual((rows[0].repo, rows[0].source, rows[0].version), ("me/foo", "link", "2"))
 
+    def test_folders_with_the_same_catalog_source_are_one_row(self):
+        addons = [toc.Addon("Spoken", "Spoken"), toc.Addon("Spoken_Quests", "Spoken Quests"), toc.Addon("SpokenQuestsAudioShared", "A"),
+                  toc.Addon("SpokenQuestsAudioHorde", "B"), toc.Addon("Other", "Other")]
+        catalog = {"spoken": "r/s@spoken", "spoken_quests": "r/s@spoken", "spokenquestsaudioshared": "r/s@quests-audio",
+                   "spokenquestsaudiohorde": "r/s@quests-audio"}
+        rows = {r.key: r for r in toc.build_rows(addons, {}, catalog)}
+        self.assertEqual(sorted(rows), ["Other", "Spoken", "SpokenQuestsAudioHorde"])
+        self.assertEqual(rows["Spoken"].folders, ["Spoken", "Spoken_Quests"])
+        self.assertEqual(rows["SpokenQuestsAudioHorde"].repo, "r/s@quests-audio")
+
     def test_link_to_deleted_addon_shows_nothing(self):
         self.assertEqual(toc.build_rows([], {"Gone": {"repo": "a/b", "folders": ["Gone"]}}, {}), [])
 
@@ -215,6 +225,70 @@ class Picking(unittest.TestCase):
         for text in ("", "name", "a/b/c", "https://example.com/x"):
             with self.assertRaises(github.GitHubError):
                 github.parse_repo(text)
+
+    def test_parse_sources_with_prefix_and_curseforge(self):
+        self.assertEqual(github.parse_repo("rusty-key/spoken-wow@spoken"), "rusty-key/spoken-wow@spoken")
+        self.assertEqual(github.parse_repo("https://github.com/rusty-key/spoken-wow @quests-audio/"), "rusty-key/spoken-wow@quests-audio")
+        self.assertEqual(github.parse_repo("curseforge:1801478"), "curseforge:1801478")
+        self.assertEqual(github.parse_repo(" CF: 0042 "), "curseforge:42")
+        for text in ("owner/name@bad prefix", "curseforge:abc", "curseforge:"):
+            with self.assertRaises(github.GitHubError):
+                github.parse_repo(text)
+
+    def test_prefix_picks_newest_release_with_that_tag_and_strips_it(self):
+        github._lists.clear()
+        releases = [
+            {"tag_name": "manager/v0.1.14", "assets": [{"name": "Spoken-Manager-0.1.14-mac-arm64.zip", "browser_download_url": "https://github.com/m"}]},
+            {"tag_name": "quests-audio/v2.5.0", "assets": [{"name": "SpokenQuestsAudioAll-2.5.0.zip", "browser_download_url": "https://github.com/q"}]},
+            {"tag_name": "spoken/v3.10.0", "prerelease": True, "assets": [{"name": "Spoken-3.10.0.zip", "browser_download_url": "https://github.com/b"}]},
+            {"tag_name": "spoken/v3.9.0", "assets": [{"name": "Spoken-3.9.0.zip", "browser_download_url": "https://github.com/s"}]},
+        ]
+        with mock.patch.object(github, "_api_get", return_value=releases) as api, mock.patch.object(github, "_fetch_release_json", side_effect=AssertionError):
+            r = github.lookup("rusty-key/spoken-wow@spoken", "forever")
+            self.assertIn("per_page=100", api.call_args[0][0])
+        self.assertEqual((r.version, r.filename, r.repo), ("v3.9.0", "Spoken-3.9.0.zip", "rusty-key/spoken-wow@spoken"))
+        with mock.patch.object(github, "_api_get", return_value=releases):
+            self.assertEqual(github.lookup("rusty-key/spoken-wow@quests-audio", "forever").version, "v2.5.0")
+            with self.assertRaises(github.NoRelease):
+                github.lookup("rusty-key/spoken-wow@bosses-audio", "forever")
+
+    def test_curseforge_newest_release_file_for_the_game(self):
+        files = [
+            {"id": 3, "fileName": "X-2.0-beta.zip", "displayName": "X 2.0 beta", "releaseType": 2, "gameVersionTypeIds": [88568]},
+            {"id": 2, "fileName": "X-1.5.zip", "displayName": "X 1.5", "releaseType": 1, "gameVersionTypeIds": [517]},
+            {"id": 1, "fileName": "X-v1.4.0.zip", "displayName": "X v1.4.0.zip", "releaseType": 1, "gameVersionTypeIds": [517, 88568]},
+        ]
+        with mock.patch.object(github, "_site_get", return_value={"data": files}):
+            r = github.lookup("curseforge:77", "forever")
+            self.assertEqual((r.version, r.filename, r.repo), ("1.4.0", "X-v1.4.0.zip", "curseforge:77"))
+            self.assertEqual(r.url, "https://www.curseforge.com/api/v1/mods/77/files/1/download")
+            self.assertEqual(github.lookup("curseforge:77", "mainline").filename, "X-1.5.zip")
+            with self.assertRaises(github.NoRelease):
+                github.lookup("curseforge:77", "classic")   # no Classic file
+        with mock.patch.object(github, "_site_get", return_value=None), self.assertRaises(github.GitHubError):
+            github.lookup("curseforge:1", "forever")
+
+    def test_cut_off_reply_is_tried_again_then_reported(self):
+        class Reply:
+            def __init__(self, body, length):
+                self.body, self.headers = body, {"Content-Length": str(length)}
+            def read(self, n=-1):
+                return self.body
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+        replies = [Reply(b'[{"a"', 20), Reply(b"[1]", 3)]
+        with mock.patch.object(github, "_open", lambda *a, **k: replies.pop(0)):
+            self.assertEqual(github._api_get("/x"), [1])
+        replies = [Reply(b"[", 9), Reply(b"[", 9)]
+        with mock.patch.object(github, "_open", lambda *a, **k: replies.pop(0)), self.assertRaises(github.GitHubError):
+            github._api_get("/x")
+
+    def test_curseforge_hosts_allowed(self):
+        self.assertTrue(github._allowed_host("https://www.curseforge.com/api/v1/mods/1/files/2/download"))
+        self.assertTrue(github._allowed_host("https://mediafilez.forgecdn.net/files/1/2/x.zip"))
+        self.assertFalse(github._allowed_host("https://curseforge.com.evil.example/x"))
 
     def test_only_github_hosts(self):
         self.assertTrue(github._allowed_host("https://release-assets.githubusercontent.com/x"))

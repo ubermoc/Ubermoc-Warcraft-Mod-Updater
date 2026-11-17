@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 
 from .toc import toc_name_matches
 
-MAX_UNPACKED_BYTES = 1024 * 1024 * 1024
+MAX_UNPACKED_BYTES = 4 * 1024 * 1024 * 1024  # voice packs unpack to 1.5 GB and more
 # Game clients only. Helpers such as WowVoiceProxy.exe run beside them and name no game.
 _WOW_EXE = re.compile(r"(^|[\\/])wow(classic)?[tb]?(-64)?\.exe$", re.IGNORECASE)
 _GAME_DIR = re.compile(r"[\\/](_[a-z0-9_]+_)[\\/]", re.IGNORECASE)

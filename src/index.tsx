@@ -186,7 +186,7 @@ function Content() {
                 ))}
                 <PanelSectionRow>
                   <ButtonItem layout="below" onClick={() => toggleRow(ADD_ROW)}>
-                    <RowLabel title="+ Add addon from GitHub" detail="" open={openRow === ADD_ROW} />
+                    <RowLabel title="+ Add addon" detail="" open={openRow === ADD_ROW} />
                   </ButtonItem>
                 </PanelSectionRow>
                 {openRow === ADD_ROW && (
