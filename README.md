@@ -26,7 +26,7 @@ Together: the Updater keeps the addons current, Ubermoc UI and Ubermoc Forever l
   - `owner/repo` or a GitHub link: the repo's newest release.
   - `owner/repo@start`: the newest release whose tag starts with `start/`, for repos that publish several things in one releases list. Spoken is `rusty-key/spoken-wow@spoken`, its quest voices `rusty-key/spoken-wow@quests-audio`.
   - `curseforge:` and the Project ID from the addon's CurseForge page (for example `curseforge:1801478`): the newest release file for that game, read from curseforge.com.
-- Some addons are known already and show as linked without doing anything: OpenXP, Spoken and its English voice packs, Forever Graphics Enhancer, Talents Forever, and the others in `catalog.json`. Folders that come from one download, such as Spoken and its modules, show as one row.
+- Some addons are known already and show as linked without doing anything: OpenXP, Spoken and its English voice packs, Forever Graphics Enhancer, Talents Forever, GearGuide, and the others in `catalog.json`. Folders that come from one download, such as Spoken and its modules, show as one row.
 - Midnight and Forever offer to install Ubermoc UI if it isn't installed. Not now is remembered for that game.
 - Add addon installs a new addon the same way.
 - Edit changes a saved repo. Remove forgets the link and leaves the addon installed.
