@@ -13,7 +13,7 @@ rm -rf out
 mkdir -p "out/$NAME/dist"
 cp dist/index.js "out/$NAME/dist/"
 cp -r py_modules "out/$NAME/"
-cp main.py plugin.json package.json catalog.json LICENSE README.md "out/$NAME/"
+cp main.py plugin.json package.json catalog.json directory.json LICENSE README.md "out/$NAME/"
 find "out/$NAME" -name __pycache__ -type d -prune -exec rm -rf {} +
 
 (cd out && python3 -c "

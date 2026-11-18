@@ -128,6 +128,36 @@ def install_zip(zip_path: str | Path, addons_dir: str | Path, stale: list[str] |
     return folders
 
 
+def remove_folders(addons_dir: str | Path, folders: list[str]) -> list[str]:
+    """Delete these addon folders, all or nothing. Returns the folder names that were removed."""
+    addons = Path(addons_dir)
+    work = addons.parent / f".ubermoc-remove-{os.getpid()}"
+    shutil.rmtree(work, ignore_errors=True)
+    moved: list[tuple[Path, Path]] = []
+    removed: list[str] = []
+    try:
+        work.mkdir(parents=True)
+        for folder in folders:
+            if not _is_safe_name(folder) or "/" in folder or not folder:
+                raise InstallError(f"Not an addon folder name: {folder}")
+            current = _existing(addons, folder) if addons.is_dir() else None
+            if current is None:
+                continue
+            backup = work / current.name
+            os.replace(current, backup)
+            moved.append((backup, current))
+            removed.append(current.name)
+    except Exception as e:
+        for backup, original in moved:
+            os.replace(backup, original)
+        shutil.rmtree(work, ignore_errors=True)
+        if isinstance(e, OSError):
+            raise InstallError(f"Couldn't delete the addon files: {e}") from e
+        raise
+    shutil.rmtree(work, ignore_errors=True)
+    return removed
+
+
 def _cmdline(pid: str) -> list[str]:
     try:
         with open(f"/proc/{pid}/cmdline", "rb") as f:

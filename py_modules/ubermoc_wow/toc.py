@@ -35,6 +35,10 @@ class Addon:
     version: str = ""
     repo: str = ""  # owner/name from an X- field
     ids: list[str] = field(default_factory=list)
+    saved: list[str] = field(default_factory=list)  # SavedVariables and SavedVariablesPerCharacter names
+
+    def ids_value(self, key: str) -> str:
+        return next((i.split("=", 1)[1].strip() for i in self.ids if i.startswith(key + "=")), "")
 
 
 @dataclass
@@ -47,6 +51,7 @@ class Row:
     version: str
     repo: str
     source: str  # link, toc, catalog or empty
+    suggestion: str = ""  # curseforge:ID read from the addon's own TOC, offered when nothing is linked
 
     def to_dict(self) -> dict:
         return {
@@ -56,6 +61,7 @@ class Row:
             "version": self.version,
             "repo": self.repo,
             "source": self.source,
+            "suggestion": self.suggestion,
         }
 
 
@@ -126,12 +132,14 @@ def read_addon(path: Path, flavor: str) -> Addon | None:
             repo = repo_from_url(value)
             if repo:
                 break
+    saved = [n for key in ("savedvariables", "savedvariablespercharacter") for n in re.split(r"[,\s]+", meta.get(key, "")) if n]
     return Addon(
         folder=path.name,
         title=clean_title(meta.get("title", "")) or path.name,
         version="" if version == PLACEHOLDER else version,
         repo=repo,
         ids=[f"{key}={meta[key]}" for key in _PROJECT_IDS if meta.get(key)],
+        saved=saved,
     )
 
 
@@ -155,7 +163,10 @@ def _detected_row(group: list[Addon], catalog: dict[str, str]) -> Row:
     if not repo:
         repo = next((catalog[a.folder.lower()] for a in ordered if a.folder.lower() in catalog), "")
         source = "catalog" if repo else ""
-    return Row(main.folder, main.title, [a.folder for a in ordered], main.version, repo, source)
+    suggestion = ""
+    if not repo:
+        suggestion = next((f"curseforge:{a.ids_value('x-curse-project-id')}" for a in ordered if a.ids_value("x-curse-project-id").isdigit()), "")
+    return Row(main.folder, main.title, [a.folder for a in ordered], main.version, repo, source, suggestion)
 
 
 def build_rows(addons: list[Addon], links: dict[str, dict], catalog: dict[str, str]) -> list[Row]:

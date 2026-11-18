@@ -15,6 +15,7 @@ RENAMED_REPOS = {"ubermoc/ubermocui": "ubermoc/Ubermoc-UI"}
 class Store:
     def __init__(self, settings_dir: str | Path):
         self.path = Path(settings_dir) / "links.json"
+        self.key_path = Path(settings_dir) / "curseforge.key"
         self._lock = threading.Lock()
 
     def _load(self) -> dict:
@@ -116,3 +117,22 @@ class Store:
             del game[key]
             self._save(data)
             return True
+
+    # The person's own CurseForge API key, for name search. Kept apart from links.json, readable by its owner only.
+    def curseforge_key(self) -> str:
+        try:
+            return self.key_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
+
+    def set_curseforge_key(self, key: str) -> None:
+        with self._lock:
+            self.key_path.parent.mkdir(parents=True, exist_ok=True)
+            if not key:
+                self.key_path.unlink(missing_ok=True)
+                return
+            tmp = self.key_path.with_suffix(".tmp")
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(key)
+            os.replace(tmp, self.key_path)

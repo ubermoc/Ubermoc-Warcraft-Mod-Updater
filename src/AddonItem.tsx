@@ -1,10 +1,10 @@
 // Copyright (c) 2026 ubermoc. All rights reserved. See LICENSE.
 import { toaster } from "@decky/api";
-import { ButtonItem, DialogButton, PanelSectionRow } from "@decky/ui";
+import { ButtonItem, DialogButton, PanelSectionRow, ToggleField } from "@decky/ui";
 import { useState } from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 
-import { AddonRow, AddonStatus, removeLink, saveLink, updateAddon } from "./api";
+import { AddonRow, AddonStatus, clearSavedData, removeAddon, removeLink, saveLink, updateAddon } from "./api";
 import { Message, RepoEditor } from "./RepoEditor";
 
 function statusText(row: AddonRow, status?: AddonStatus): string {
@@ -48,6 +48,38 @@ export function AddonItem(props: {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  // Clearing and deleting can't be undone, so each asks once more first.
+  const [confirm, setConfirm] = useState<"" | "clear" | "delete">("");
+  const [alsoClear, setAlsoClear] = useState(false);
+
+  const clearData = async () => {
+    setBusy(true);
+    setError("");
+    setInfo("");
+    const reply = await clearSavedData(gameId, row.key);
+    if (reply.ok) setInfo(reply.result.message);
+    else setError(reply.error);
+    setConfirm("");
+    setBusy(false);
+  };
+
+  const deleteAddon = async (folder: string) => {
+    setBusy(true);
+    setError("");
+    setInfo("");
+    const reply = await removeAddon(gameId, row.key, folder, alsoClear);
+    if (reply.ok) {
+      toaster.toast({ title: row.title, body: `Deleted ${reply.result.removed.join(", ")}` });
+      setConfirm("");
+      setAlsoClear(false);
+      props.onToggle();
+      await props.onChanged();
+    } else {
+      setError(reply.error);
+    }
+    setBusy(false);
+  };
 
   const update = async () => {
     setBusy(true);
@@ -91,7 +123,9 @@ export function AddonItem(props: {
       {open && (editing || !row.repo) && (
         <RepoEditor
           gameId={gameId}
-          initial={row.repo}
+          initial={row.repo || row.suggestion}
+          searchHint={row.title}
+          note={!row.repo && row.suggestion ? "This addon's own files point to CurseForge. Press Check to use it, or find another source." : undefined}
           saveLabel="Save"
           onSave={save}
           onCancel={() => {
@@ -127,10 +161,71 @@ export function AddonItem(props: {
                   onClick={remove}
                   style={{ width: "55%", minWidth: 0, minHeight: 0, height: 28, padding: "0 8px", fontSize: 12, lineHeight: "28px" }}
                 >
-                  Remove
+                  Unlink
                 </DialogButton>
               </div>
             </PanelSectionRow>
+          )}
+        </>
+      )}
+      {open && !editing && (
+        <>
+          {info && <Message text={info} />}
+          {!row.repo && error && <Message text={error} />}
+          {confirm === "" && (
+            <>
+              <PanelSectionRow>
+                <ButtonItem layout="below" disabled={busy} onClick={() => setConfirm("clear")}>
+                  Clear saved data
+                </ButtonItem>
+              </PanelSectionRow>
+              <PanelSectionRow>
+                <ButtonItem layout="below" disabled={busy} onClick={() => setConfirm("delete")}>
+                  Delete
+                </ButtonItem>
+              </PanelSectionRow>
+            </>
+          )}
+          {confirm === "clear" && (
+            <>
+              <Message text={`Clear ${row.title}'s saved settings for every character? The addon stays installed and starts fresh. This can't be undone.`} />
+              <PanelSectionRow>
+                <ButtonItem layout="below" disabled={busy} onClick={clearData}>
+                  {busy ? "Working..." : "Yes, clear it"}
+                </ButtonItem>
+              </PanelSectionRow>
+              <PanelSectionRow>
+                <ButtonItem layout="below" disabled={busy} onClick={() => setConfirm("")}>
+                  Cancel
+                </ButtonItem>
+              </PanelSectionRow>
+            </>
+          )}
+          {confirm === "delete" && (
+            <>
+              <Message text={`Delete ${row.title} from this game? This can't be undone.`} />
+              <PanelSectionRow>
+                <ToggleField label="Also clear its saved data" checked={alsoClear} disabled={busy} onChange={setAlsoClear} />
+              </PanelSectionRow>
+              {row.folders.length > 1 &&
+                row.folders.map((folder) => (
+                  <PanelSectionRow key={folder}>
+                    <ButtonItem layout="below" disabled={busy} onClick={() => deleteAddon(folder)}>
+                      {`Delete only ${folder}`}
+                    </ButtonItem>
+                  </PanelSectionRow>
+                ))}
+              <PanelSectionRow>
+                <ButtonItem layout="below" disabled={busy} onClick={() => deleteAddon("")}>
+                  {busy ? "Working..." : row.folders.length > 1 ? `Delete all ${row.folders.length} parts` : "Yes, delete it"}
+                </ButtonItem>
+              </PanelSectionRow>
+              <PanelSectionRow>
+                <ButtonItem layout="below" disabled={busy} onClick={() => setConfirm("")}>
+                  Cancel
+                </ButtonItem>
+              </PanelSectionRow>
+            </>
           )}
         </>
       )}

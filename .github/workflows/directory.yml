@@ -1,0 +1,23 @@
+name: directory
+
+on:
+  push:
+    paths: ["directory.json"]
+  pull_request:
+    paths: ["directory.json"]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Valid JSON, unique sources, source format, and every CurseForge ID or GitHub repo exists.
+      # No bundle and no release: this only guards the directory.
+      - name: Check directory.json
+        run: python3 tools/check_directory.py directory.json

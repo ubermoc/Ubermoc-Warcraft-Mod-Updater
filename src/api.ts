@@ -37,6 +37,14 @@ export interface AddonRow {
   version: string;
   repo: string;
   source: "link" | "toc" | "catalog" | "";
+  suggestion: string; // curseforge:ID found in the addon's own files, when nothing is linked
+}
+
+export interface SearchResult {
+  title: string;
+  source: string;
+  detail: string;
+  origin: "catalog" | "curseforge" | "directory";
 }
 
 export interface AddonStatus {
@@ -73,6 +81,13 @@ export const checkAddons = callable<[gameId: string, fresh: boolean], Reply<Reco
 export const checkRepo = callable<[gameId: string, text: string], Reply<FoundRelease>>("check_repo");
 export const saveLink = callable<[gameId: string, key: string, text: string], Reply<FoundRelease>>("save_link");
 export const removeLink = callable<[gameId: string, key: string], Reply<boolean>>("remove_link");
+export const searchAddons = callable<[gameId: string, text: string], Reply<{ results: SearchResult[]; note: string }>>("search_addons");
+export const suggestIssue = callable<[text: string], Reply<{ url: string }>>("suggest_issue");
+export const curseforgeStatus = callable<[], Reply<{ has_key: boolean }>>("curseforge_status");
+export const saveCurseforgeKey = callable<[key: string], Reply<{ has_key: boolean }>>("save_curseforge_key");
+export const removeCurseforgeKey = callable<[], Reply<{ has_key: boolean }>>("remove_curseforge_key");
+export const clearSavedData = callable<[gameId: string, key: string], Reply<{ removed: number; message: string }>>("clear_saved_data");
+export const removeAddon = callable<[gameId: string, key: string, folder: string, clearData: boolean], Reply<{ removed: string[] }>>("remove_addon");
 export const updateAddon = callable<[gameId: string, key: string], Reply<{ title: string; version: string }>>("update_addon");
 export const addAddon = callable<[gameId: string, text: string], Reply<{ title: string; version: string }>>("add_addon");
 export const defaultAddons = callable<[gameId: string], Reply<DefaultAddon[]>>("default_addons");

@@ -7,13 +7,14 @@ import sys
 import tempfile
 import time
 import unittest
+import urllib.parse
 import zipfile
 from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "py_modules"))
 
-from ubermoc_wow import autologin, discover, github, installer, login, toc  # noqa: E402
+from ubermoc_wow import autologin, directory, discover, github, installer, login, toc  # noqa: E402
 from ubermoc_wow.service import PLUGIN_NAME, Updater  # noqa: E402
 
 BUILD_INFO = (
@@ -391,7 +392,7 @@ class Installing(Base):
             self.assertFalse(installer.game_running("_forever_"))
 
 
-class Service(Base):
+class ServiceBase(Base):
     def setUp(self):
         super().setUp()
         self.plugin = self.tmp / "plugin"
@@ -402,6 +403,8 @@ class Service(Base):
         self.game = discover.Game("g1", "Midnight", "_retail_", "wow", "12.1.5.1", 120105, "mainline", str(self.tmp), str(self.addons))
         self.up = Updater(str(self.tmp), str(self.tmp / "settings"), str(self.tmp / "runtime"), str(self.plugin))
         self.up._games = [self.game]
+        # FAKE(C1): the fetch stands for raw.githubusercontent.com; keep tests off the network.
+        self.up.directory._fetch = lambda: {"addons": []}
         self.release = github.Release("cat/foo", "Foo", "v2", "foo.zip", "https://github.com/x")
 
     def installed(self, version="1.0", folder="Foo"):
@@ -417,6 +420,8 @@ class Service(Base):
     def lookup(self):
         return mock.patch.object(github, "lookup", return_value=self.release)
 
+
+class Service(ServiceBase):
     def test_status_states(self):
         self.installed("1.0")
         with self.lookup():
@@ -857,6 +862,258 @@ class Service(Base):
         (self.tmp / "b3.zip").write_bytes(io.BytesIO(b"nope").getvalue())
         with self.assertRaises(github.GitHubError):
             self.up._check_plugin_zip(self.tmp / "b3.zip")
+
+
+class SavedDataAndRemoval(ServiceBase):
+    """Clearing an addon's saved settings, deleting its folders, and finding addons by name."""
+
+    def with_saved(self):
+        (self.addons / "Foo").mkdir(parents=True, exist_ok=True)
+        (self.addons / "Foo/Foo.toc").write_text("## Title: Foo\n## SavedVariables: FooDB, FooCache\n## SavedVariablesPerCharacter: FooChar\n")
+        (self.addons / "Foo/Foo_Extra").mkdir()
+        (self.addons / "Foo_Extra").mkdir()
+        (self.addons / "Foo_Extra/Foo_Extra.toc").write_text("## Title: Foo Extra\n## X-Curse-Project-ID: 4242\n")
+        acct = self.tmp / "WTF/Account/ACCT/SavedVariables"
+        char = self.tmp / "WTF/Account/ACCT/Realm/Char/SavedVariables"
+        acct.mkdir(parents=True)
+        char.mkdir(parents=True)
+        for path in (acct / "FooDB.lua", acct / "FooDB.lua.bak", acct / "foocache.lua", char / "FooChar.lua", acct / "OtherDB.lua"):
+            path.write_text("x = 1")
+        return acct, char
+
+    def test_clear_saved_data_removes_only_this_addons_files(self):
+        acct, char = self.with_saved()
+        out = self.up.clear_saved_data("g1", "Foo")
+        self.assertEqual(out["removed"], 4)
+        self.assertEqual([p.name for p in acct.iterdir()], ["OtherDB.lua"])
+        self.assertFalse(list(char.iterdir()))
+        self.assertTrue((self.addons / "Foo/Foo.toc").exists())
+
+    def test_clear_saved_data_when_nothing_is_saved(self):
+        self.installed()
+        self.assertIn("doesn't save", self.up.clear_saved_data("g1", "Foo")["message"])
+
+    def test_clear_and_delete_refuse_while_the_game_runs(self):
+        self.with_saved()
+        with mock.patch.object(installer, "game_running", return_value=True):
+            with self.assertRaises(installer.InstallError):
+                self.up.clear_saved_data("g1", "Foo")
+            with self.assertRaises(installer.InstallError):
+                self.up.remove_addon("g1", "Foo")
+        self.assertTrue((self.addons / "Foo").exists())
+
+    def test_delete_one_part_keeps_the_rest_and_the_link(self):
+        self.with_saved()
+        with self.lookup():
+            self.up.save_link("g1", "Foo", "cat/foo")
+        self.up.store.set_link("g1", "Foo", {"repo": "cat/foo", "folders": ["Foo", "Foo_Extra"], "owned": ["Foo", "Foo_Extra"], "version": "1"})
+        self.up.remove_addon("g1", "Foo", folder="Foo_Extra")
+        self.assertFalse((self.addons / "Foo_Extra").exists())
+        self.assertTrue((self.addons / "Foo/Foo.toc").exists())
+        self.assertEqual(self.up.store.links("g1")["Foo"]["folders"], ["Foo"])
+
+    def test_delete_everything_forgets_the_link_and_can_clear_data(self):
+        acct, _ = self.with_saved()
+        self.up.store.set_link("g1", "Foo", {"repo": "cat/foo", "folders": ["Foo"], "owned": ["Foo"], "version": "1"})
+        self.up.remove_addon("g1", "Foo", clear_data=True)
+        self.assertFalse((self.addons / "Foo").exists())
+        self.assertEqual(self.up.store.links("g1"), {})
+        self.assertEqual([p.name for p in acct.iterdir()], ["OtherDB.lua"])
+
+    def test_delete_without_clear_data_keeps_saved_files(self):
+        acct, _ = self.with_saved()
+        self.up.remove_addon("g1", "Foo")
+        self.assertTrue((acct / "FooDB.lua").exists())
+
+    def test_delete_rejects_a_part_that_is_not_in_the_addon(self):
+        self.installed()
+        with self.assertRaises(github.GitHubError):
+            self.up.remove_addon("g1", "Foo", folder="../Elsewhere")
+        self.assertTrue((self.addons / "Foo").exists())
+
+    def test_curseforge_id_in_the_toc_is_suggested_not_linked(self):
+        self.with_saved()
+        row = next(r for r in self.up.list_addons("g1") if r["key"] == "Foo_Extra")
+        self.assertEqual((row["repo"], row["suggestion"]), ("", "curseforge:4242"))
+
+    def test_fuzzy_search_matches_typos_and_missing_spaces_in_the_catalog(self):
+        self.up.catalog_names = {"WeakAuras": "WeakAuras/WeakAuras2", "Bartender4": "Nevcairiel/Bartender4", "Spoken": "r/s@spoken", "Spoken_Quests": "r/s@spoken"}
+        found = lambda q: [r["source"] for r in self.up.search_addons("g1", q)["results"]]
+        self.assertEqual(found("weak aura"), ["WeakAuras/WeakAuras2"])
+        self.assertEqual(found("bartneder"), ["Nevcairiel/Bartender4"])
+        self.assertEqual(found("spoken"), ["r/s@spoken"])  # modules sharing a source are one result
+        self.assertEqual(found("zzzzqq"), [])
+
+    def test_search_adds_curseforge_results_only_with_a_saved_key(self):
+        mods = [{"id": 7, "name": "Weak Auras Classic", "summary": "auras", "downloads": 5}]
+        with mock.patch.object(github, "search_curseforge", return_value=mods) as api:
+            first = self.up.search_addons("g1", "weakauras")
+            self.assertIn("API key", first["note"])
+            api.assert_not_called()
+            self.up.save_curseforge_key("k" * 30)
+            second = self.up.search_addons("g1", "weakauras")
+        self.assertIn("curseforge:7", [r["source"] for r in second["results"]])
+        self.assertTrue(oct(self.up.store.key_path.stat().st_mode & 0o777) == "0o600")
+        self.assertEqual(self.up.curseforge_status(), {"has_key": True})
+        self.assertEqual(self.up.remove_curseforge_key(), {"has_key": False})
+
+    def test_a_rejected_key_still_shows_catalog_matches(self):
+        self.up.catalog_names = {"WeakAuras": "WeakAuras/WeakAuras2"}
+        self.up.save_curseforge_key("k" * 30)
+        with mock.patch.object(github, "search_curseforge", side_effect=github.GitHubError("CurseForge didn't accept the API key.")):
+            out = self.up.search_addons("g1", "weakauras")
+        self.assertEqual(len(out["results"]), 1)
+        self.assertIn("API key", out["note"])
+
+    def test_key_and_search_text_are_checked(self):
+        for bad in ("", "short", "has space " * 4, "tab\tkey" * 5):
+            with self.assertRaises(github.GitHubError):
+                self.up.save_curseforge_key(bad)
+        with self.assertRaises(github.GitHubError):
+            self.up.search_addons("g1", "a")
+
+
+class DirectoryStore(ServiceBase):
+    def test_validate_is_strict_and_extra_keys_are_dropped(self):
+        good = {"addons": [{"name": "Clique", "source": "curseforge:6942", "summary": "Healers click.", "shell": "x"}]}
+        self.assertEqual(directory.validate(good), [{"name": "Clique", "source": "curseforge:6942", "summary": "Healers click."}])
+        bad = [
+            ["not an object"],
+            {"addons": "Clique"},
+            {"addons": [1]},
+            {"addons": [{"name": "Clique", "source": "cf:6942", "summary": "x"}]},                       # must be curseforge:<digits>
+            {"addons": [{"name": "Clique", "source": "curseforge:06942", "summary": "x"}]},              # digits as given, no leading zero
+            {"addons": [{"name": "Clique", "source": "owner/repo@prefix", "summary": "x"}]},            # directory entries carry no prefixes
+            {"addons": [{"name": "Clique", "source": "https://github.com/owner/repo", "summary": "x"}]},
+            {"addons": [{"name": "", "source": "a/b", "summary": "x"}]},
+            {"addons": [{"name": "n" * 101, "source": "a/b", "summary": "x"}]},
+            {"addons": [{"name": "x", "source": "a/b", "summary": "s" * 201}]},
+            {"addons": [{"name": "x", "source": "a/b", "summary": "x"} for _ in range(directory.MAX_ENTRIES + 1)]},
+            {"addons": [{"name": "x", "source": "a/b"}]},                                                # no summary
+        ]
+        for entry in bad:
+            with self.assertRaises(github.GitHubError):
+                directory.validate(entry)
+
+    def test_the_persons_own_list_is_added_to_the_public_one(self):
+        settings = self.tmp / "own-settings"
+        settings.mkdir()
+        public = {"addons": [{"name": "Clique", "source": "curseforge:6942", "summary": "Healers click."}]}
+        d = directory.Directory(settings, self.plugin, "o/r", fetch=lambda: public)
+        self.assertEqual([e["name"] for e in d.entries()], ["Clique"])          # no own list: the public one alone
+        own = {"addons": [
+            {"name": "Clique again", "source": "curseforge:6942", "summary": "same source, shown once"},
+            {"name": "Mine", "source": "curseforge:111", "summary": "My own entry."},
+        ]}
+        (settings / "directory.local.json").write_text(json.dumps(own), encoding="utf-8")
+        d = directory.Directory(settings, self.plugin, "o/r", fetch=lambda: public)
+        got = d.entries()
+        self.assertEqual([(e["name"], e["source"]) for e in got], [("Clique", "curseforge:6942"), ("Mine", "curseforge:111")])
+        (settings / "directory.local.json").write_text("not json at all", encoding="utf-8")    # a bad own list is ignored
+        d = directory.Directory(settings, self.plugin, "o/r", fetch=lambda: public)
+        self.assertEqual([e["name"] for e in d.entries()], ["Clique"])
+        (settings / "directory.local.json").write_text(json.dumps({"addons": [{"name": "x", "source": "bad source", "summary": ""}]}), encoding="utf-8")
+        d = directory.Directory(settings, self.plugin, "o/r", fetch=lambda: public)
+        self.assertEqual([e["name"] for e in d.entries()], ["Clique"])          # an invalid entry makes the whole own list ignored
+
+    def test_an_empty_public_list_is_valid_and_the_own_list_still_shows(self):
+        settings = self.tmp / "own-settings2"
+        settings.mkdir()
+        (settings / "directory.local.json").write_text(json.dumps({"addons": [{"name": "Mine", "source": "curseforge:111", "summary": "s"}]}), encoding="utf-8")
+        d = directory.Directory(settings, self.plugin, "o/r", fetch=lambda: {"addons": []})
+        self.assertEqual([e["name"] for e in d.entries()], ["Mine"])
+
+    def test_reply_larger_than_the_directory_cap_is_refused(self):
+        class Reply:  # FAKE(C1): what raw.githubusercontent.com answers, one size cap over
+            def __init__(self, body, length):
+                self.body, self.headers = body, {"Content-Length": str(length)}
+            def read(self, n=-1):
+                return self.body[:n]
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+
+        d = directory.Directory(self.tmp / "settings", self.plugin, "o/r")
+        big = b"x" * (directory.MAX_BYTES + 1)
+        with mock.patch.object(github, "_open", lambda *a, **k: Reply(big, directory.MAX_BYTES + 1)):
+            with self.assertRaises(github.GitHubError):
+                d._download()
+        # the URL still has to pass the host check before anything is opened
+        d2 = directory.Directory(self.tmp / "settings2", self.plugin, "o/r")
+        d2.url = "https://raw.githubusercontent.com.evil.example/o/r/main/directory.json"
+        with self.assertRaises(github.GitHubError):
+            d2._download()
+
+    def test_cache_and_last_good_copy_survive_a_bad_download(self):
+        d = directory.Directory(self.tmp / "settings", self.plugin, "o/r")
+        first = [{"name": "Clique", "source": "curseforge:6942", "summary": "Healers click."}]
+        d._fetch = lambda: {"addons": first}
+        self.assertEqual(d.entries(), first)
+        cache_path = self.tmp / "settings" / "directory.json"
+        self.assertTrue(cache_path.exists())
+        # inside the window the cache answers without a second fetch
+        d._fetch = lambda: (_ for _ in ()).throw(AssertionError("fetched again inside the window"))
+        self.assertEqual(d.entries(), first)
+        # stale cache and a bad download: the last good copy stays
+        cache = json.loads(cache_path.read_text())
+        cache["cached"] = time.time() - directory.CACHE_SECONDS - 1
+        cache_path.write_text(json.dumps(cache))
+        d._last_try -= directory.CACHE_SECONDS
+        d._fetch = lambda: {"addons": "not a list"}
+        self.assertEqual(d.entries(), first)
+        # a good download replaces it
+        d._last_try -= directory.CACHE_SECONDS
+        d._fetch = lambda: {"addons": [{"name": "Plumber", "source": "curseforge:876", "summary": "Renames"}]}
+        self.assertEqual([e["name"] for e in d.entries()], ["Plumber"])
+
+    def test_the_plugin_copy_is_the_fallback_when_no_cache_and_no_download(self):
+        d = directory.Directory(self.tmp / "settings", self.plugin, "o/r")
+        bundled = [{"name": "Clique", "source": "curseforge:6942", "summary": "Healers click."}]
+        (self.plugin / "directory.json").write_text(json.dumps({"addons": bundled}), encoding="utf-8")
+        d._fetch = lambda: (_ for _ in ()).throw(github.GitHubError("Could not reach GitHub"))
+        self.assertEqual(d.entries(), bundled)
+        self.assertEqual(d.entries(), bundled)  # a failed attempt is not retried every call
+
+    def test_search_matches_name_and_summary_and_shows_the_summary_as_detail(self):
+        entries = [
+            {"name": "Clique", "source": "curseforge:6942", "summary": "The best clicky addon for healers"},
+            {"name": "BagBrother", "source": "curseforge:17", "summary": "Bagnon without the bells"},
+        ]
+        self.up.directory._fetch = lambda: {"addons": entries}
+        out = self.up.search_addons("g1", "clicky")
+        self.assertEqual([(r["source"], r["detail"], r["origin"]) for r in out["results"]],
+                         [("curseforge:6942", "The best clicky addon for healers", "directory")])
+        self.assertIn("API key", out["note"])  # no key: the directory and catalog still answer
+        out2 = self.up.search_addons("g1", "bagnon bells")
+        self.assertEqual([(r["title"], r["origin"]) for r in out2["results"]], [("BagBrother", "directory")])
+
+    def test_directory_and_key_results_merge_without_duplicates(self):
+        entries = [{"name": "Clique", "source": "curseforge:6942", "summary": "clicky healers"}]
+        self.up.catalog_names = {"Clique": "curseforge:6942"}
+        self.up.directory._fetch = lambda: {"addons": entries}
+        self.up.save_curseforge_key("k" * 30)
+        mods = [{"id": 6942, "name": "Clique", "summary": "clicky healers", "downloads": 1}]
+        with mock.patch.object(github, "search_curseforge", return_value=mods):
+            out = self.up.search_addons("g1", "clique")
+        self.assertEqual(len(out["results"]), 1)                      # one entry per source
+        self.assertEqual(out["results"][0]["origin"], "catalog")      # the exact name match wins
+        self.up.remove_curseforge_key()
+        out2 = self.up.search_addons("g1", "healers")
+        self.assertEqual([(r["source"], r["origin"]) for r in out2["results"]], [("curseforge:6942", "directory")])
+
+    def test_suggest_issue_url_is_prefilled_and_read_only(self):
+        url = self.up.suggest_issue("clique")["url"]
+        parts = urllib.parse.urlsplit(url)
+        self.assertEqual((parts.scheme, parts.netloc, parts.path),
+                         ("https", "github.com", "/ubermoc/Ubermoc-Warcraft-Mod-Updater/issues/new"))
+        self.assertTrue(github._allowed_host(url))
+        params = urllib.parse.parse_qs(parts.query)
+        self.assertEqual(params["title"], ["Addon for the directory"])
+        self.assertIn("clique", params["body"][0])
+        self.assertNotIn("key", parts.query.lower())   # nothing secret rides in the link
+        with self.assertRaises(github.GitHubError):
+            self.up.suggest_issue("x")
 
 
 if __name__ == "__main__":

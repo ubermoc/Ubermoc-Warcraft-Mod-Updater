@@ -18,6 +18,7 @@ import {
   listGames,
   loginState,
 } from "./api";
+import { CurseForgeKey } from "./CurseForgeKey";
 import { DefaultAddonPrompt } from "./DefaultAddonPrompt";
 import { LoginSection } from "./LoginSection";
 import { playGame } from "./play";
@@ -165,6 +166,7 @@ function Content() {
     <>
       <PanelSection>
         <LoginSection open={loginOpen} onToggle={toggleLogin} />
+        <CurseForgeKey />
       </PanelSection>
       <PanelSection title="World of Warcraft">
         {games === null && <Message text="Looking for World of Warcraft..." />}

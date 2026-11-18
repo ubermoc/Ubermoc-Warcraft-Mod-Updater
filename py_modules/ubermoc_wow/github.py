@@ -92,7 +92,7 @@ def _allowed_host(url: str) -> bool:
     parts = urllib.parse.urlsplit(url)
     host = (parts.hostname or "").lower()
     return parts.scheme == "https" and (
-        host in ("github.com", "api.github.com", "www.curseforge.com", "mediafilez.forgecdn.net", "edge.forgecdn.net")
+        host in ("github.com", "api.github.com", "www.curseforge.com", "api.curseforge.com", "mediafilez.forgecdn.net", "edge.forgecdn.net")
         or host.endswith(".githubusercontent.com")
     )
 
@@ -111,13 +111,13 @@ def ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context()
 
 
-def _open(url: str, accept: str = "*/*", timeout: float = 20):
+def _open(url: str, accept: str = "*/*", timeout: float = 20, headers: dict | None = None):
     if not _allowed_host(url):
         raise GitHubError(f"Not a GitHub or CurseForge address: {url}")
     opener = urllib.request.build_opener(
         urllib.request.HTTPSHandler(context=ssl_context()), _GitHubRedirects()
     )
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": accept})
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": accept, **(headers or {})})
     return opener.open(request, timeout=timeout)
 
 
@@ -290,6 +290,33 @@ def _site_get(path: str):
         raise GitHubError("CurseForge sent something that isn't a file list.") from e
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         raise GitHubError(f"Could not reach CurseForge: {e}") from e
+
+
+CURSEFORGE_API = "https://api.curseforge.com"
+_WOW_GAME_ID = 1
+
+
+def search_curseforge(text: str, key: str, limit: int = 12) -> list[dict]:
+    """Addons on CurseForge matching a name. The official API needs the person's own free key."""
+    query = urllib.parse.urlencode(
+        {"gameId": _WOW_GAME_ID, "searchFilter": text, "sortField": 2, "sortOrder": "desc", "pageSize": limit}
+    )
+    try:
+        with _open(f"{CURSEFORGE_API}/v1/mods/search?{query}", accept="application/json", headers={"x-api-key": key}) as r:
+            data = json.loads(_read_limited(r, MAX_METADATA_BYTES).decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise GitHubError("CurseForge didn't accept the API key. Check it, or remove it.") from e
+        raise GitHubError(f"CurseForge answered with error {e.code}.") from e
+    except ValueError as e:
+        raise GitHubError("CurseForge sent something that isn't a search result.") from e
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise GitHubError(f"Could not reach CurseForge: {e}") from e
+    return [
+        {"id": int(m["id"]), "name": str(m.get("name", "")), "summary": str(m.get("summary", "")), "downloads": int(m.get("downloadCount") or 0)}
+        for m in data.get("data") or []
+        if isinstance(m, dict) and str(m.get("id", "")).isdigit()
+    ]
 
 
 def file_version(name: str) -> str:

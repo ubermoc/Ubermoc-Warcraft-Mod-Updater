@@ -14,7 +14,9 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from . import discover, github, installer, toc
+import urllib.parse
+
+from . import directory, discover, github, installer, savedata, search, toc
 from . import autologin
 from .autologin import AutoLogin
 from .login import LoginVault
@@ -52,6 +54,8 @@ class Updater:
         self.store = Store(settings_dir)
         self.login = LoginVault(settings_dir)
         self.autologin = AutoLogin(lambda: (self.login.read() or {}).get("password", ""), logger=logger, speed=lambda: self.store.login_speed())
+        self.directory = directory.Directory(settings_dir, plugin_dir, PLUGIN_REPO, logger=logger)
+        self.catalog_names: dict[str, str] = {}
         self.catalog = self._load_catalog()
         self._games: list[discover.Game] | None = None
         self._releases: dict[tuple[str, str], tuple[float, object]] = {}
@@ -62,6 +66,7 @@ class Updater:
             data = json.loads((self.plugin_dir / "catalog.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
+        self.catalog_names = {folder: repo for folder, repo in data.items()}
         return {folder.lower(): repo for folder, repo in data.items()}
 
     # ---------- games and addons ----------
@@ -244,6 +249,106 @@ class Updater:
     def remove_link(self, game_id: str, key: str) -> bool:
         self._game(game_id)
         return self.store.remove_link(game_id, key)
+
+    # ---------- finding addons by name ----------
+    def curseforge_status(self) -> dict:
+        return {"has_key": bool(self.store.curseforge_key())}
+
+    def save_curseforge_key(self, key: str) -> dict:
+        key = (key or "").strip()
+        if not 20 <= len(key) <= 200 or not key.isascii() or not key.isprintable() or " " in key:
+            raise github.GitHubError("That doesn't look like a CurseForge API key. Copy it again from console.curseforge.com.")
+        self.store.set_curseforge_key(key)
+        return self.curseforge_status()
+
+    def remove_curseforge_key(self) -> dict:
+        self.store.set_curseforge_key("")
+        return self.curseforge_status()
+
+    def search_addons(self, game_id: str, text: str) -> dict:
+        """Fuzzy matches for a name: the catalog and the published directory always, CurseForge too when a key is saved."""
+        self._game(game_id)
+        text = (text or "").strip()
+        if len(text) < 2:
+            raise github.GitHubError("Type at least two letters of the addon's name.")
+        found = [search.search_catalog(text, self.catalog_names), search.search_directory(text, self.directory.entries())]
+        note = ""
+        key = self.store.curseforge_key()
+        if key:
+            try:
+                found.append(search.search_curseforge_results(text, github.search_curseforge(text, key)))
+            except github.GitHubError as e:
+                note = str(e)  # the catalog matches are still worth showing
+        else:
+            note = "Add a CurseForge API key under CurseForge search to search all of CurseForge."
+        return {"results": search.merge(*found), "note": note}
+
+    def suggest_issue(self, text: str) -> dict:
+        """The suggestion button: a prefilled GitHub issue link. The plugin can't write to the repo."""
+        text = (text or "").strip()
+        if len(text) < 2:
+            raise github.GitHubError("Type at least two letters of the addon's name.")
+        body = f"Addon: {text}\nSource (owner/repo or curseforge:ID): \n\nFrom the plugin's Find by name."
+        url = f"https://github.com/{PLUGIN_REPO}/issues/new?" + urllib.parse.urlencode({"title": "Addon for the directory", "body": body})
+        if not github._allowed_host(url):
+            raise github.GitHubError(f"Not a GitHub address: {url}")
+        return {"url": url}
+
+    # ---------- removing ----------
+    def _row_addons(self, game: discover.Game, row: toc.Row, folders: list[str]) -> list[toc.Addon]:
+        found = (toc.read_addon(Path(game.addons_path) / f, game.flavor) for f in folders)
+        return [a for a in found if a]
+
+    def _saved_names(self, game: discover.Game, row: toc.Row, folders: list[str]) -> list[str]:
+        return sorted({n for a in self._row_addons(game, row, folders) for n in a.saved})
+
+    def _check_closed(self, game: discover.Game, what: str) -> None:
+        if installer.game_running(game.folder):
+            raise installer.InstallError(f"Close {game.label} first. It would {what}.")
+
+    def clear_saved_data(self, game_id: str, key: str) -> dict:
+        """Delete the settings this addon saved, in every account and character. The addon stays installed."""
+        game = self._game(game_id)
+        row = self._row(game, key)
+        self._check_closed(game, "save them again when it closes")
+        names = self._saved_names(game, row, row.folders)
+        if not names:
+            return {"removed": 0, "message": "This addon doesn't save any settings."}
+        try:
+            removed = savedata.clear(game.path, names)
+        except OSError as e:
+            raise installer.InstallError(str(e)) from e
+        return {"removed": removed, "message": f"Cleared {removed} saved file{'s' if removed != 1 else ''}." if removed else "There was nothing saved for this addon."}
+
+    def remove_addon(self, game_id: str, key: str, folder: str = "", clear_data: bool = False) -> dict:
+        """Delete an addon's folders from AddOns: all of them, or just one part of it."""
+        game = self._game(game_id)
+        row = self._row(game, key)
+        if folder and folder.lower() not in (f.lower() for f in row.folders):
+            raise github.GitHubError("That part isn't in this addon any more.")
+        self._check_closed(game, "keep using the files being deleted")
+        if not self._busy.acquire(blocking=False):
+            raise installer.InstallError("Another install is still running.")
+        try:
+            targets = [f for f in row.folders if not folder or f.lower() == folder.lower()]
+            names = self._saved_names(game, row, targets) if clear_data else []
+            installer.remove_folders(game.addons_path, targets)
+            if names:
+                try:
+                    savedata.clear(game.path, names)
+                except OSError as e:
+                    raise installer.InstallError(f"The addon was deleted, but its saved data wasn't: {e}") from e
+        finally:
+            self._busy.release()
+        link = self.store.links(game_id).get(key)
+        if link:
+            gone = {t.lower() for t in targets}
+            left = [f for f in link.get("folders", []) if f.lower() not in gone]
+            if not folder or not [f for f in row.folders if f.lower() not in gone]:
+                self.store.remove_link(game_id, key)
+            else:
+                self.store.set_link(game_id, key, {**link, "folders": left, "owned": [f for f in link.get("owned", []) if f.lower() not in gone]})
+        return {"removed": targets}
 
     # ---------- installing ----------
     def _install(self, game: discover.Game, repo: str, must_contain: str, old_link: dict) -> tuple[list[str], github.Release]:

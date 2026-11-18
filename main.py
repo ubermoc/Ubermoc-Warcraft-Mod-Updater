@@ -91,6 +91,27 @@ class Plugin:
     async def remove_link(self, game_id: str, key: str) -> dict:
         return await self._run(self.updater.remove_link, game_id, key)
 
+    async def search_addons(self, game_id: str, text: str) -> dict:
+        return await self._run(self.updater.search_addons, game_id, text)
+
+    async def suggest_issue(self, text: str) -> dict:
+        return await self._run(self.updater.suggest_issue, text)
+
+    async def curseforge_status(self) -> dict:
+        return await self._run(self.updater.curseforge_status)
+
+    async def save_curseforge_key(self, key: str) -> dict:
+        return await self._run(self.updater.save_curseforge_key, key)
+
+    async def remove_curseforge_key(self) -> dict:
+        return await self._run(self.updater.remove_curseforge_key)
+
+    async def clear_saved_data(self, game_id: str, key: str) -> dict:
+        return await self._run(self.updater.clear_saved_data, game_id, key)
+
+    async def remove_addon(self, game_id: str, key: str, folder: str = "", clear_data: bool = False) -> dict:
+        return await self._run(self.updater.remove_addon, game_id, key, folder, clear_data)
+
     async def update_addon(self, game_id: str, key: str) -> dict:
         return await self._run(self.updater.update_addon, game_id, key)
 
