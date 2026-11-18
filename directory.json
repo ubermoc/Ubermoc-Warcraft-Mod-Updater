@@ -1,3 +1,504 @@
 {
- "addons": []
+ "addons": [
+  {
+   "name": "DBM - Deadly Boss Mods (DBM-Core)",
+   "source": "curseforge:3358",
+   "summary": "A Swiss Army knife that gives you fight info & tools for dungeons & raids. Supporting  Midnight, Forever, Mists of Pandaria, Wrath Titan, Burning Crusade, Vanilla."
+  },
+  {
+   "name": "Details! Damage Meter",
+   "source": "curseforge:61284",
+   "summary": "Complete combat analysis, gathering damage, healing, and other importante stuff."
+  },
+  {
+   "name": "Questie",
+   "source": "curseforge:334372",
+   "summary": "The Classic Quest Helper"
+  },
+  {
+   "name": "Auctionator",
+   "source": "curseforge:6124",
+   "summary": "Makes it easier to use the auction house and track the value of items"
+  },
+  {
+   "name": "BigWigs (Boss Timers & Tools)",
+   "source": "curseforge:2382",
+   "summary": "BigWigs is a modular and extremely lightweight addon designed to provide you with the tools you need to beat any boss encounter."
+  },
+  {
+   "name": "Bagnon",
+   "source": "curseforge:1592",
+   "summary": "See your inventory, bank, guild and alts from anywhere"
+  },
+  {
+   "name": "RareScanner",
+   "source": "curseforge:84208",
+   "summary": "RareScanner, a World of Warcraft addon to alert you when a rare, event or treasure appear in your minimap."
+  },
+  {
+   "name": "LittleWigs",
+   "source": "curseforge:4383",
+   "summary": "A BigWigs content plugin for dungeons, delves, and scenarios."
+  },
+  {
+   "name": "Pawn",
+   "source": "curseforge:4646",
+   "summary": "Pawn helps you compare items and find upgrades."
+  },
+  {
+   "name": "Plater Nameplates",
+   "source": "curseforge:100547",
+   "summary": "Highly customizable nameplate with support to scripts and animations."
+  },
+  {
+   "name": "GTFO",
+   "source": "curseforge:20697",
+   "summary": "GTFO warns you when you're standing in fire or other bad stuff."
+  },
+  {
+   "name": "DBM - Dungeons, Delves, Challenges, & Events",
+   "source": "curseforge:314994",
+   "summary": "Adds support to DBM for dungeons, delves, scenarios, and challenges for all game versions."
+  },
+  {
+   "name": "TomTom",
+   "source": "curseforge:18808",
+   "summary": "Acts as your portable navigation assistant"
+  },
+  {
+   "name": "HealBot Continued",
+   "source": "curseforge:2743",
+   "summary": "HealBot Continued"
+  },
+  {
+   "name": "Bartender4",
+   "source": "curseforge:13501",
+   "summary": "Simple and Advanced combined - Bartender4 ActionBar AddOn"
+  },
+  {
+   "name": "Leatrix Plus",
+   "source": "curseforge:94855",
+   "summary": "Powerful and modular quality of life addon with a small resource footprint.  Supports all WoW games including Midnight and Burning Crusade Classic Anniversary (as well as all the others)."
+  },
+  {
+   "name": "TradeSkillMaster",
+   "source": "curseforge:26886",
+   "summary": "Powerful addon to help you make gold from crafting to selling on the auction house to buying vendor items and much more!"
+  },
+  {
+   "name": "ALL THE THINGS (ATT)",
+   "source": "curseforge:267285",
+   "summary": "Addon for Tracking Collections & Account Completion"
+  },
+  {
+   "name": "HandyNotes",
+   "source": "curseforge:14154",
+   "summary": "Handy notes for your maps"
+  },
+  {
+   "name": "DBM - Forever and Vanilla",
+   "source": "curseforge:16442",
+   "summary": "Modules for Vanilla (including Forever) for use on both Retail and Classic"
+  },
+  {
+   "name": "Method Raid Tools",
+   "source": "curseforge:79879",
+   "summary": "Helpful addon for raiding"
+  },
+  {
+   "name": "Titan Panel",
+   "source": "curseforge:489",
+   "summary": "Titan Panel"
+  },
+  {
+   "name": "Simulationcraft",
+   "source": "curseforge:82745",
+   "summary": "An addon that generates a Simulationcraft profile for your character"
+  },
+  {
+   "name": "Baganator",
+   "source": "curseforge:914482",
+   "summary": "Easy to use and powerful bags in categories or single view layouts (supports Forever with gamepad)"
+  },
+  {
+   "name": "Leatrix Maps",
+   "source": "curseforge:298842",
+   "summary": "Enhancements for your maps.  Supports all WoW games including Midnight and Burning Crusade Classic Anniversary (as well as all the others)."
+  },
+  {
+   "name": "Threat Plates",
+   "source": "curseforge:21217",
+   "summary": "Nameplates that scale and change color depending on their threat levels."
+  },
+  {
+   "name": "Skada Damage Meter",
+   "source": "curseforge:17718",
+   "summary": "Modular damage meter."
+  },
+  {
+   "name": "SexyMap",
+   "source": "curseforge:15936",
+   "summary": "Spice up your minimap with some sexy options."
+  },
+  {
+   "name": "GatherMate2",
+   "source": "curseforge:26120",
+   "summary": "Collects Herbs, Mines, Gas Clouds, Archaeology, Treasure and Fishing locations and adds them to the worldmap and minimap"
+  },
+  {
+   "name": "Prat 3.0",
+   "source": "curseforge:7473",
+   "summary": "Chat addon, filtering messages and UI changes"
+  },
+  {
+   "name": "Decursive",
+   "source": "curseforge:2154",
+   "summary": "Afflictions display and cleaning for solo, group and raid with advanced filtering and priority system."
+  },
+  {
+   "name": "Scrap (Junk Seller)",
+   "source": "curseforge:5422",
+   "summary": "Sells all your junk when you visit a merchant. Intuitive & Easy to use."
+  },
+  {
+   "name": "Quartz",
+   "source": "curseforge:4558",
+   "summary": "Modular casting bar."
+  },
+  {
+   "name": "SilverDragon - Rare Scanner",
+   "source": "curseforge:14647",
+   "summary": "Scan for rare mobs so you can find them and their loot"
+  },
+  {
+   "name": "Syndicator",
+   "source": "curseforge:988370",
+   "summary": "Tracks your items, and searches for them in all your characters' bags, banks, mails, auctions and guilds (includes Forever support)"
+  },
+  {
+   "name": "RestedXP Guide",
+   "source": "curseforge:486246",
+   "summary": "In-game Leveling Guides"
+  },
+  {
+   "name": "VuhDo",
+   "source": "curseforge:7950",
+   "summary": "Raid Frames providing click-heal functionality, buff and debuff control, main tank management and much more."
+  },
+  {
+   "name": "GatherMate2_Data (Retail & Forever)",
+   "source": "curseforge:26737",
+   "summary": "Wowhead Data dump for GatherMate2 for Retail and Forever"
+  },
+  {
+   "name": "TellMeWhen",
+   "source": "curseforge:8025",
+   "summary": "Provides visual, auditory, and textual notifications about cooldowns, buffs, and pretty much every other element of combat."
+  },
+  {
+   "name": "MaxDps Rotation Helper",
+   "source": "curseforge:91970",
+   "summary": "Rotation helper framework."
+  },
+  {
+   "name": "Altoholic",
+   "source": "curseforge:13402",
+   "summary": "Provides information about your alts"
+  },
+  {
+   "name": "DBM - PvP Mods",
+   "source": "curseforge:61882",
+   "summary": "Deadly Boss Mods (DBM) for Battlegrounds and Arenas"
+  },
+  {
+   "name": "GatherMate2 Data Wowhead classic",
+   "source": "curseforge:350035",
+   "summary": "GatherMate2 data from Wowhead"
+  },
+  {
+   "name": "WIM (WoW Instant Messenger) v3",
+   "source": "curseforge:7474",
+   "summary": "Give whispers an instant messenger feel."
+  },
+  {
+   "name": "MoveAny (Edit Mode, Windows and Ui)",
+   "source": "curseforge:646134",
+   "summary": "Move any Blizzard Ui Element/Window"
+  },
+  {
+   "name": "Dominos",
+   "source": "curseforge:6650",
+   "summary": "A main action bar replacement"
+  },
+  {
+   "name": "Atlas",
+   "source": "curseforge:301",
+   "summary": "Core map browser for Atlas. Install separate map modules and plugins to view detailed maps and reference information."
+  },
+  {
+   "name": "Gargul",
+   "source": "curseforge:418746",
+   "summary": "Loot addon for rolling, GDKP, SoftRes, TMB (thats my bis), DFT and PRIO3 with built in auto-looting / auto-looter"
+  },
+  {
+   "name": "Clique",
+   "source": "curseforge:15564",
+   "summary": "Simply powerful click-casting interface"
+  },
+  {
+   "name": "Plumber",
+   "source": "curseforge:888580",
+   "summary": "Quality-of-life features including Expansion Summary UI, Loot Window, Instance Difficulty Selector and more."
+  },
+  {
+   "name": "BugGrabber",
+   "source": "curseforge:13344",
+   "summary": "Grabs bugs for the bug sack."
+  },
+  {
+   "name": "Platynator (Nameplates)",
+   "source": "curseforge:1361299",
+   "summary": "Simple to customise, flexible and best performing nameplates (includes Retail and Forever support)"
+  },
+  {
+   "name": "Nova Instance Tracker",
+   "source": "curseforge:393085",
+   "summary": "Track instance lockouts with detailed stats about your time in an instance. Money Trade logs. Alts rested XP amounts. And more."
+  },
+  {
+   "name": "MinimapButtonButton",
+   "source": "curseforge:446096",
+   "summary": "A single button that collects your minimap buttons"
+  },
+  {
+   "name": "BugSack",
+   "source": "curseforge:6273",
+   "summary": "Toss those bugs inna sack."
+  },
+  {
+   "name": "BagBrother",
+   "source": "curseforge:1264217",
+   "summary": "Bagnon and Bagnonium's shared engine."
+  },
+  {
+   "name": "X-Perl UnitFrames",
+   "source": "curseforge:14911",
+   "summary": "Replaces the normal unit, party, target, pet frames and adds target-of-target."
+  },
+  {
+   "name": "DungeonJournal",
+   "source": "curseforge:1707971",
+   "summary": "Check which quests are available for each dungeons, where they are , and what loot bosses drop"
+  },
+  {
+   "name": "Grid2",
+   "source": "curseforge:15226",
+   "summary": "A modular, lightweight and screen-estate saving grid of party/raid unit frames"
+  },
+  {
+   "name": "What's Training?",
+   "source": "curseforge:324944",
+   "summary": "Shows you what abilities/items are available at your class/profession trainer"
+  },
+  {
+   "name": "BadBoy: Spam Blocker & Reporter",
+   "source": "curseforge:5547",
+   "summary": "A simple spam blocker & reporter."
+  },
+  {
+   "name": "QuestieDB",
+   "source": "curseforge:1696795",
+   "summary": "Questie Database Addon - contains all the required data for Questie"
+  },
+  {
+   "name": "Attune",
+   "source": "curseforge:414434",
+   "summary": "Attunement progress"
+  },
+  {
+   "name": "ArkInventory",
+   "source": "curseforge:3651",
+   "summary": "Allows you to view all items from all your characters on the same account, when-ever and where-ever you want."
+  },
+  {
+   "name": "ThreatClassic2",
+   "source": "curseforge:355497",
+   "summary": "A simple threat meter for WoW Classic (Era, Anniversary, Mists) and WoW Forever."
+  },
+  {
+   "name": "Narcissus",
+   "source": "curseforge:311718",
+   "summary": "An immersive character pane and in-game studio"
+  },
+  {
+   "name": "BlizzMove",
+   "source": "curseforge:17809",
+   "summary": "Makes the default frames moveable via simple drag and drop"
+  },
+  {
+   "name": "OPie",
+   "source": "curseforge:19406",
+   "summary": "Bind actions to a pop-up radial menu."
+  },
+  {
+   "name": "AdvancedInterfaceOptions",
+   "source": "curseforge:99982",
+   "summary": "Restores access to removed interface options in Legion"
+  },
+  {
+   "name": "EllesmereUI",
+   "source": "curseforge:1477613",
+   "summary": "EllesmereUI combines the most intuitive UI editor in WoW with extreme performance optimization and endless customization. Bring your UI to life like never before."
+  },
+  {
+   "name": "Speedy AutoLoot",
+   "source": "curseforge:295182",
+   "summary": "Loot at ludicrous speed."
+  },
+  {
+   "name": "BtWQuests",
+   "source": "curseforge:280369",
+   "summary": "A quest journal that shows your progress within quest chains"
+  },
+  {
+   "name": "Capping Battleground Timers",
+   "source": "curseforge:20143",
+   "summary": "Battleground timers and other PvP & arena features."
+  },
+  {
+   "name": "IceHUD",
+   "source": "curseforge:5394",
+   "summary": "Another HUD addon"
+  },
+  {
+   "name": "AtlasLoot Classic Forever",
+   "source": "curseforge:1422985",
+   "summary": "AtlasLoot for Classic Forever 2026, including BiS Lists for all Classes & Phases of Classic Forever aswell as advanced BiS Tooltip Functionality"
+  },
+  {
+   "name": "Mapster",
+   "source": "curseforge:14376",
+   "summary": "Simple Map Mod"
+  },
+  {
+   "name": "Northern Sky Raid Tools",
+   "source": "curseforge:954018",
+   "summary": "Addon with many raid-relevant features"
+  },
+  {
+   "name": "GSE: Sequences, Variables, Macros",
+   "source": "curseforge:101161",
+   "summary": "GSE is an advanced macro compiler that is an alternative to the limits provided by the default macro editor."
+  },
+  {
+   "name": "AtlasLootClassic Continued",
+   "source": "curseforge:1270310",
+   "summary": "In-game loot tables for every boss, dungeon, and raid Classic Era, Anniversary, and Forever."
+  },
+  {
+   "name": "PallyPower",
+   "source": "curseforge:2703",
+   "summary": "Personal and Raid/Party Paladin buffs"
+  },
+  {
+   "name": "LFG Group Bulletin Board",
+   "source": "curseforge:484920",
+   "summary": "Add-on to help find dungeon requests by sorting thought chat"
+  },
+  {
+   "name": "Masque",
+   "source": "curseforge:13592",
+   "summary": "A skinning engine for button-based add-ons."
+  },
+  {
+   "name": "BetterBlizzFrames",
+   "source": "curseforge:940950",
+   "summary": "WoW Forever ready! Standard Blizzard unit frames with more features and easy settings"
+  },
+  {
+   "name": "Enhance QoL",
+   "source": "curseforge:1076354",
+   "summary": "Little Tweaks and Quality of Life improvements like: Drink Macro, Mythic Keystone Improver, Quick Signup LFG"
+  },
+  {
+   "name": "NugComboBar",
+   "source": "curseforge:2538",
+   "summary": "Combopoints counter"
+  },
+  {
+   "name": "Dialogue UI",
+   "source": "curseforge:989270",
+   "summary": "Quest Dialogue UI with built-in camera control and gamepad support."
+  },
+  {
+   "name": "Immersion",
+   "source": "curseforge:257550",
+   "summary": "An immersive questing experience, without any extra fuss."
+  },
+  {
+   "name": "ElvUI WindTools",
+   "source": "curseforge:300361",
+   "summary": "💯 Maybe the BEST ElvUI plugin to enhance your game experience."
+  },
+  {
+   "name": "HidingBar",
+   "source": "curseforge:369265",
+   "summary": "Convenient hiding panel for addon buttons from DataBroker and Minimap"
+  },
+  {
+   "name": "Leatrix Sounds",
+   "source": "curseforge:304659",
+   "summary": "Complete sound file browser, mute game sounds, find mob sounds, sound kit finder,  everything sound related in one addon."
+  },
+  {
+   "name": "Cooldown Manager Centered",
+   "source": "curseforge:1393605",
+   "summary": "Style your Cooldown Manager Icons, Buffs and Bars"
+  },
+  {
+   "name": "Atlas Kalimdor & Eastern Kingdoms",
+   "source": "curseforge:33667",
+   "summary": "Kalimdor and Eastern Kingdoms instance maps for Atlas"
+  },
+  {
+   "name": "MaxDps Warlock",
+   "source": "curseforge:91983",
+   "summary": "Warlock module for MaxDps addon"
+  },
+  {
+   "name": "MaxDps Hunter",
+   "source": "curseforge:98966",
+   "summary": "Hunter module for MaxDps addon"
+  },
+  {
+   "name": "Can I Mog It?",
+   "source": "curseforge:100617",
+   "summary": "Adds tooltips and overlays to items showing if you have learned a transmog appearance."
+  },
+  {
+   "name": "Total RP 3",
+   "source": "curseforge:75973",
+   "summary": "The best role-playing add-on for World of Warcraft!"
+  },
+  {
+   "name": "LibSharedMedia-3.0",
+   "source": "curseforge:14320",
+   "summary": "Shared handling of media data (fonts, sounds, textures, ...) between addons."
+  },
+  {
+   "name": "Bagnon ItemLevel",
+   "source": "curseforge:274607",
+   "summary": "A simple plugin for Bagnon that displays the item level of your equipable gear and artifact relics."
+  },
+  {
+   "name": "FojjiCore",
+   "source": "curseforge:899951",
+   "summary": "Companion addon for Fojji WeakAuras, plus a full Dungeon Journal, world and dungeon route planner, and Spell Ranks for WoW Forever."
+  },
+  {
+   "name": "MaxDps Druid",
+   "source": "curseforge:103301",
+   "summary": "Druid module for MaxDps addon"
+  }
+ ]
 }
