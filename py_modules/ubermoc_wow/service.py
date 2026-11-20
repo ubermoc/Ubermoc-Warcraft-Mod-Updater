@@ -30,7 +30,7 @@ PLUGIN_FILES = ("plugin.json", "main.py", "dist/index.js")
 DEFAULT_ADDONS = (
     {"title": "Ubermoc UI", "folder": "UbermocUI", "repo": "ubermoc/Ubermoc-UI",
      "blurb": "Play World of Warcraft with just a controller."},
-    {"title": "Ubermoc Forever", "folder": "UbermocForever", "repo": "ubermoc/Ubermoc-Forever",
+    {"title": "Ubermoc Forever", "folder": "Ubermoc-Forever", "repo": "ubermoc/Ubermoc-Forever",
      "blurb": "A controller-first interface for Forever and Midnight."},
 )
 DEFAULT_ADDON_PRODUCTS = ("wow", "wowf")

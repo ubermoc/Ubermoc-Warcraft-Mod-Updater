@@ -496,7 +496,7 @@ class Service(ServiceBase):
         self.assertEqual([a["repo"] for a in self.up.default_addons("g1")], ["ubermoc/Ubermoc-UI", "ubermoc/Ubermoc-Forever"])
         self.installed("1.0", "ubermocui")
         self.assertEqual([a["repo"] for a in self.up.default_addons("g1")], ["ubermoc/Ubermoc-Forever"])
-        self.installed("1.0", "ubermocforever")
+        self.installed("1.0", "ubermoc-forever")
         self.assertEqual(self.up.default_addons("g1"), [])
 
     def test_saved_links_to_the_old_ubermocui_repo_move_to_the_new_one(self):
@@ -512,12 +512,12 @@ class Service(ServiceBase):
         other = discover.Game("g2", "Forever", "_forever_", "wowf", "1.60.1.1", 16001, "forever", str(self.tmp), str(self.tmp / "Other"))
         self.up._games.append(other)
         self.up.dismiss_default_addon("g1", "UbermocUI")
-        self.assertEqual([a["folder"] for a in self.up.default_addons("g1")], ["UbermocForever"])
+        self.assertEqual([a["folder"] for a in self.up.default_addons("g1")], ["Ubermoc-Forever"])
         self.assertEqual(len(self.up.default_addons("g2")), 2)
         reopened = Updater(str(self.tmp), str(self.tmp / "settings"), str(self.tmp / "runtime"), str(self.plugin))
         reopened._games = [self.game]
-        self.assertEqual([a["folder"] for a in reopened.default_addons("g1")], ["UbermocForever"])
-        reopened.dismiss_default_addon("g1", "UbermocForever")
+        self.assertEqual([a["folder"] for a in reopened.default_addons("g1")], ["Ubermoc-Forever"])
+        reopened.dismiss_default_addon("g1", "Ubermoc-Forever")
         self.assertEqual(reopened.default_addons("g1"), [])
 
     def test_dismissing_keeps_saved_links(self):

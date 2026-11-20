@@ -1,6 +1,6 @@
 # Handoff: Ubermoc Warcraft Mod Updater
 
-Read `CLAUDE.md` first (the release process and care points). This file is the current state and the
+Read `Ubermoc.md` first (the release process and care points). This file is the current state and the
 work that remains. The maintainer is Marcos (GitHub: ubermoc). Be plain and direct with him, report
 what was verified and what was not, and do not wait on him for things you can do yourself.
 
@@ -53,7 +53,7 @@ Typecheck: `npx --no-install tsc --noEmit -p .`  Bundle: `npx --no-install rollu
 7. Tests for 3 to 5, update the README, run tests, typecheck and rollup. Show the diff to the maintainer.
 
 ## Hard rules
-- **Do not commit, tag, push or release unless the maintainer says "push"** (then follow `CLAUDE.md`).
+- **Do not commit, tag, push or release unless the maintainer says "push"** (then follow `Ubermoc.md`).
   Local experiments may be committed with "(local, version unchanged)" only if he asks.
 - **No secrets.** Never print, log or commit the Battle.net password, a CurseForge API key, or any token.
   The API key is the maintainer's; he will set `CF_API_KEY` himself. Do not ask him to paste it in chat.
