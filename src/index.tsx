@@ -18,6 +18,7 @@ import {
 import { CurseForgeKey } from "./CurseForgeKey";
 import { LoginSection } from "./LoginSection";
 import { playGame } from "./play";
+import { MoreApps } from "./MoreApps";
 import { PluginUpdate } from "./PluginUpdate";
 import { Message, RepoEditor } from "./RepoEditor";
 
@@ -197,6 +198,7 @@ function Content() {
         )}
       </PanelSection>
       <PluginUpdate />
+      <MoreApps self="https://github.com/ubermoc/Ubermoc-Warcraft-Mod-Updater" />
     </>
   );
 }
