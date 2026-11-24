@@ -10,16 +10,12 @@ import {
   AddonRow,
   AddonStatus,
   checkAddons,
-  DefaultAddon,
-  defaultAddons,
-  dismissDefaultAddon,
   Game,
   listAddons,
   listGames,
   loginState,
 } from "./api";
 import { CurseForgeKey } from "./CurseForgeKey";
-import { DefaultAddonPrompt } from "./DefaultAddonPrompt";
 import { LoginSection } from "./LoginSection";
 import { playGame } from "./play";
 import { PluginUpdate } from "./PluginUpdate";
@@ -82,7 +78,6 @@ function Content() {
   const [rows, setRows] = useState<AddonRow[]>([]);
   const [statuses, setStatuses] = useState<Record<string, AddonStatus>>({});
   const [listError, setListError] = useState("");
-  const [suggested, setSuggested] = useState<DefaultAddon[]>([]);
 
   const scan = useCallback(async (rescan: boolean) => {
     const reply = await listGames(rescan);
@@ -107,12 +102,6 @@ function Content() {
     }
     setListError("");
     setRows(list.result);
-    try {
-      const offer = await defaultAddons(gameId);
-      setSuggested(offer.ok ? offer.result : []);
-    } catch {
-      setSuggested([]); // the offer is optional; never let it block the update check
-    }
     const checked = await checkAddons(gameId, fresh);
     if (checked.ok) setStatuses(checked.result);
     else setListError(checked.error);
@@ -124,7 +113,6 @@ function Content() {
     setRows([]);
     setStatuses({});
     setListError("");
-    setSuggested([]);
     if (openGame === id) {
       setOpenGame(null);
     } else {
@@ -140,7 +128,6 @@ function Content() {
       setRows([]);
       setStatuses({});
       setListError("");
-      setSuggested([]);
     }
     setLoginOpen(!loginOpen);
   };
@@ -155,11 +142,6 @@ function Content() {
       await loadGame(gameId, false);
     }
     return reply;
-  };
-
-  const dismiss = async (gameId: string, folder: string) => {
-    await dismissDefaultAddon(gameId, folder);
-    setSuggested((current) => current.filter((addon) => addon.folder !== folder));
   };
 
   return (
@@ -183,9 +165,6 @@ function Content() {
               <>
                 {listError && <Message text={listError} />}
                 <PlayButton gameId={game.id} />
-                {suggested.map((addon) => (
-                  <DefaultAddonPrompt key={addon.folder} addon={addon} onInstall={add(game.id)} onDismiss={() => dismiss(game.id, addon.folder)} />
-                ))}
                 <PanelSectionRow>
                   <ButtonItem layout="below" onClick={() => toggleRow(ADD_ROW)}>
                     <RowLabel title="+ Add addon" detail="" open={openRow === ADD_ROW} />
